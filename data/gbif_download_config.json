@@ -1,7 +1,12 @@
 {
   "country": "DE",
-  "year_from": 2021,
-  "year_to": 2025,
+  "year_from": 2023,
+  "year_to": 2026,
   "require_coordinate": true,
-  "overlap_days": 2
+  "overlap_days": 2,
+
+  "top_n": 250,
+  "points_sample": 2000,
+  "geohash_precision": 6,
+  "no_bin_month_counts": false
 }
