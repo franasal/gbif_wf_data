@@ -9,14 +9,17 @@ import requests
 
 MATCH_URL = "https://api.gbif.org/v1/species/match"
 
+
 def load_json(path: Path, default):
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
 
+
 def save_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 def gbif_match(name: str, kingdom: str = "Plantae", rank: str = "SPECIES", strict: bool = True) -> Dict[str, Any]:
     params = {
@@ -30,8 +33,8 @@ def gbif_match(name: str, kingdom: str = "Plantae", rank: str = "SPECIES", stric
     r.raise_for_status()
     return r.json()
 
+
 def score_ok(j: Dict[str, Any]) -> bool:
-    # Conservative: accept exact / high confidence matches.
     mt = (j.get("matchType") or "").upper()
     conf = j.get("confidence")
     try:
@@ -39,6 +42,7 @@ def score_ok(j: Dict[str, Any]) -> bool:
     except Exception:
         conf = 0
     return (mt in {"EXACT", "HIGHERRANK"} and conf >= 90) or (mt == "EXACT" and conf >= 80)
+
 
 def main():
     ap = argparse.ArgumentParser(description="Resolve scientific names to GBIF backbone taxonKey (usageKey).")
@@ -54,7 +58,7 @@ def main():
     cache_path = Path(args.cache)
 
     name_map: Dict[str, str] = load_json(names_path, {})
-    if not isinstance(name_map, dict) or not all(isinstance(k, str) for k in name_map.keys()):
+    if not isinstance(name_map, dict):
         raise SystemExit("--names must be a JSON dict { 'Latin name': 'Common name', ... }")
 
     cache: Dict[str, Any] = load_json(cache_path, {})
@@ -63,8 +67,10 @@ def main():
     unresolved: List[Tuple[str, str]] = []
 
     for latin, common in sorted(name_map.items(), key=lambda kv: kv[0].lower()):
-        latin = latin.strip()
+        latin = (latin or "").strip()
         common = (common or "").strip()
+        if not latin:
+            continue
 
         if latin in cache:
             j = cache[latin]
@@ -73,7 +79,7 @@ def main():
             cache[latin] = j
             time.sleep(args.sleep)
 
-        usage = j.get("usageKey")  # GBIF backbone key
+        usage = j.get("usageKey")
         ok = score_ok(j) if not args.allow_fuzzy else bool(usage)
 
         item = {
@@ -105,6 +111,7 @@ def main():
 
     print(f"Wrote: {out_path} ({len(out)} taxa)")
     print(f"Cache: {cache_path}")
+
 
 if __name__ == "__main__":
     main()
