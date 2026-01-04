@@ -7,6 +7,10 @@
 
   "top_n": 250,
   "points_sample": 2000,
-  "geohash_precision": 6,
-  "no_bin_month_counts": false
+  "strata_geohash": 5,
+  "min_per_cell": 1,
+  "max_per_cell": 30,
+  "gzip_json": true,
+  "images_index": "assets/plant_images/index.json"
+
 }
