@@ -1,0 +1,7 @@
+{
+  "country": "DE",
+  "year_from": 2021,
+  "year_to": 2025,
+  "require_coordinate": true,
+  "overlap_days": 2
+}
