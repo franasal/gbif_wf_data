@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import time
+import zipfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import requests
+
+GBIF_REQUEST_URL = "https://api.gbif.org/v1/occurrence/download/request"
+GBIF_STATUS_URL = "https://api.gbif.org/v1/occurrence/download/{key}"
+GBIF_ZIP_URL = "https://api.gbif.org/occurrence/download/request/{key}.zip"
+
+
+def utc_today_date() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def load_json(path: Path, default):
+    if not path.exists():
+        return default
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def save_json(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: str) -> dict:
+    preds = []
+
+    if cfg.get("require_coordinate", True):
+        preds.append({"type": "equals", "key": "HAS_COORDINATE", "value": "true"})
+
+    country = cfg.get("country") or None
+    if country:
+        preds.append({"type": "equals", "key": "COUNTRY", "value": country})
+
+    taxon_keys = []
+    for p in resolved_plants:
+        tk = p.get("taxonKey")
+        if tk is None:
+            continue
+        taxon_keys.append(str(int(tk)))
+
+    if not taxon_keys:
+        raise RuntimeError("No taxonKeys found in plants_resolved.json (did resolve_taxa fail?).")
+
+    preds.append({"type": "in", "key": "TAXON_KEY", "values": taxon_keys})
+
+    y_from = cfg.get("year_from")
+    y_to = cfg.get("year_to")
+    if y_from is not None:
+        preds.append({"type": "greaterThanOrEquals", "key": "YEAR", "value": str(int(y_from))})
+    if y_to is not None:
+        preds.append({"type": "lessThanOrEquals", "key": "YEAR", "value": str(int(y_to))})
+
+    # Incremental delta filter
+    preds.append({"type": "greaterThanOrEquals", "key": "LAST_INTERPRETED", "value": interpreted_since})
+
+    return {"type": "and", "predicates": preds}
+
+
+def request_download(user: str, pwd: str, email: str, predicate: dict) -> str:
+    body = {
+        "creator": user,
+        "notificationAddresses": [email],
+        "sendNotification": False,
+        "format": "DWCA",
+        "predicate": predicate,
+    }
+    r = requests.post(GBIF_REQUEST_URL, auth=(user, pwd), json=body, timeout=60)
+    r.raise_for_status()
+    key = r.text.strip().strip('"')
+    if not key or "-" not in key:
+        raise RuntimeError(f"Unexpected GBIF response: {r.text[:200]}")
+    return key
+
+
+def poll_until_succeeded(key: str, timeout_s: int = 3600, poll_s: int = 30) -> None:
+    deadline = time.time() + timeout_s
+    last = None
+    while time.time() < deadline:
+        r = requests.get(GBIF_STATUS_URL.format(key=key), timeout=60)
+        r.raise_for_status()
+        status = r.json().get("status")
+        if status != last:
+            print(f"GBIF {key}: {status}")
+            last = status
+        if status == "SUCCEEDED":
+            return
+        if status in ("KILLED", "CANCELLED", "FAILED"):
+            raise RuntimeError(f"GBIF download failed: {status}")
+        time.sleep(poll_s)
+    raise TimeoutError(f"GBIF {key} not ready after {timeout_s}s")
+
+
+def download_zip(key: str, out_zip: Path) -> None:
+    out_zip.parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(GBIF_ZIP_URL.format(key=key), stream=True, timeout=300) as r:
+        r.raise_for_status()
+        with out_zip.open("wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+
+
+def main():
+    repo = Path(__file__).resolve().parents[1]
+
+    # New inputs you maintain
+    names_path = repo / "data" / "names_de.json"  # dict: { "Latin": "Common (DE)" }
+
+    # Generated from names_de.json (resolver output)
+    resolved_path = repo / "data" / "plants_resolved.json"
+    cache_path = repo / "data" / "taxon_cache.json"
+
+    # Config + state
+    cfg_path = repo / "data" / "gbif_download_config.json"
+    state_path = repo / "data" / "gbif_state.json"
+
+    # Cache DB + output artifact
+    db_path = repo / "data" / "dwca.sqlite"
+    out_json = repo / "data" / "occurrences_compact.json"
+
+    # Your existing scripts
+    resolver = repo / "tools" / "resolve_taxa.py"
+    loader = repo / "tools" / "dwca_sqlite.py"
+    exporter = repo / "tools" / "export_occurrences_compact.py"  # adjust if your filename differs
+
+    if not names_path.exists():
+        raise SystemExit(f"Missing input: {names_path} (expected dict Latin->common name).")
+    if not resolver.exists():
+        raise SystemExit(f"Missing resolver script: {resolver}")
+    if not loader.exists():
+        raise SystemExit(f"Missing loader script: {loader}")
+    if not exporter.exists():
+        raise SystemExit(f"Missing exporter script: {exporter}")
+
+    cfg = load_json(cfg_path, {})
+    state = load_json(state_path, {"last_interpreted_since": utc_today_date()})
+
+    # 0) Resolve names -> taxonKey list (cached)
+    subprocess.check_call([
+        "python", str(resolver),
+        "--names", str(names_path),
+        "--out", str(resolved_path),
+        "--cache", str(cache_path),
+    ])
+
+    resolved_plants = load_json(resolved_path, [])
+    if not isinstance(resolved_plants, list) or not resolved_plants:
+        raise SystemExit(f"{resolved_path} is empty or invalid. Resolver step failed?")
+
+    # 1) Compute incremental "since" with overlap
+    last = state.get("last_interpreted_since") or utc_today_date()
+    overlap_days = int(cfg.get("overlap_days", 2))
+
+    try:
+        last_dt = datetime.fromisoformat(last).replace(tzinfo=timezone.utc)
+    except Exception:
+        last_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    since_dt = last_dt - timedelta(days=max(0, overlap_days))
+    since = since_dt.date().isoformat()
+    print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days})")
+
+    # 2) Request GBIF delta download
+    user = os.environ["GBIF_USER"]
+    pwd = os.environ["GBIF_PWD"]
+    email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
+
+    predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
+
+    key = request_download(user, pwd, email, predicate)
+    print(f"Requested download: {key}")
+    poll_until_succeeded(key)
+
+    # 3) Download + unzip
+    tmp = repo / ".tmp_gbif" / key
+    tmp.mkdir(parents=True, exist_ok=True)
+
+    zip_path = tmp / f"{key}.zip"
+    download_zip(key, zip_path)
+
+    with zipfile.ZipFile(zip_path, "r") as z:
+        z.extractall(tmp)
+
+    # 4) Load delta into SQLite using your existing loader (table: occ)
+    # Use --no-raw to avoid bloating the DB.
+    subprocess.check_call([
+        "python", str(loader), "load",
+        "--dwca", str(tmp),
+        "--db", str(db_path),
+        "--no-raw",
+    ])
+
+    # 5) Export compact JSON (your exporter reads SQLite, writes occurrences_compact.json)
+    # Pass --names-json so "de" names get filled from your dict.
+    export_args = [
+        "python", str(exporter),
+        "--db", str(db_path),
+        "--out", str(out_json),
+        "--names-json", str(names_path),
+    ]
+
+    # Apply filters (optional)
+    country = cfg.get("country", "DE")
+    if country:
+        export_args += ["--country", str(country)]
+
+    y_from = cfg.get("year_from")
+    y_to = cfg.get("year_to")
+    if y_from is not None:
+        export_args += ["--year-from", str(int(y_from))]
+    if y_to is not None:
+        export_args += ["--year-to", str(int(y_to))]
+
+    # Export tuning (defaults if not provided in config)
+    export_args += ["--top-n", str(int(cfg.get("top_n", 50)))]
+    export_args += ["--points-sample", str(int(cfg.get("points_sample", 300)))]
+    export_args += ["--geohash-precision", str(int(cfg.get("geohash_precision", 6)))]
+
+    if cfg.get("no_bin_month_counts", False):
+        export_args += ["--no-bin-month-counts"]
+
+    subprocess.check_call(export_args)
+
+    # 6) Advance state
+    new_state = {"last_interpreted_since": utc_today_date()}
+    save_json(state_path, new_state)
+    print(f"Updated state: {new_state}")
+    print(f"Wrote: {out_json}")
+
+
+if __name__ == "__main__":
+    main()
