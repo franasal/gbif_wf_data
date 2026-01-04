@@ -11,7 +11,7 @@ import requests
 
 GBIF_REQUEST_URL = "https://api.gbif.org/v1/occurrence/download/request"
 GBIF_STATUS_URL = "https://api.gbif.org/v1/occurrence/download/{key}"
-GBIF_ZIP_URL = "https://api.gbif.org/occurrence/download/request/{key}.zip"
+GBIF_ZIP_URL = "https://api.gbif.org/v1/occurrence/download/request/{key}.zip"
 
 
 def utc_today_date() -> str:
