@@ -1,9 +1,8 @@
-name: GBIF daily update
+name: Daily GBIF update
 
 on:
   schedule:
-    # GitHub cron is UTC. This runs daily at 03:15 UTC.
-    - cron: "15 3 * * *"
+    - cron: "17 3 * * *"  # runs daily, UTC
   workflow_dispatch: {}
 
 permissions:
@@ -24,27 +23,35 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install requests
+          pip install -r requirements.txt
 
-      - name: Run pipeline
+      - name: Cache SQLite DB
+        uses: actions/cache@v4
+        with:
+          path: data/dwca.sqlite
+          key: dwca-sqlite-${{ runner.os }}-v1
+          restore-keys: |
+            dwca-sqlite-${{ runner.os }}-
+
+      - name: Run daily update
         env:
           GBIF_USER: ${{ secrets.GBIF_USER }}
           GBIF_PWD: ${{ secrets.GBIF_PWD }}
           GBIF_EMAIL: ${{ secrets.GBIF_EMAIL }}
         run: |
-          python tools/run_pipeline.py
+          python tools/run_daily_update.py
 
-      - name: Commit changes (if any)
+      - name: Commit outputs (if changed)
         run: |
           git config user.name "gbif-bot"
           git config user.email "gbif-bot@users.noreply.github.com"
 
-          git add data/occurrences_compact.json data/gbif_state.json data/dwca.sqlite || true
+          git add data/occurrences_compact.json data/gbif_state.json data/plants_resolved.json data/taxon_cache.json
 
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No changes."
             exit 0
           fi
 
-          git commit -m "chore(data): daily GBIF update"
+          git commit -m "chore(data): daily GBIF refresh"
           git push
