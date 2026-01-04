@@ -1,0 +1,11 @@
+.tmp_gbif/
+.tmp_gbif/*
+__pycache__/
+*.pyc
+
+# Optional: if you do NOT want to commit the DB
+# data/dwca.sqlite
+
+# These are generated (you can commit them or not)
+# data/plants_resolved.json
+# data/taxon_cache.json
