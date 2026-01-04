@@ -196,24 +196,33 @@ def main():
         "--db", str(db_path),
         "--out", str(out_json),
         "--names-json", str(names_path),
+    
         "--top-n", str(int(cfg.get("top_n", 50))),
-        "--points-sample", str(int(cfg.get("points_sample", 300))),
-        "--geohash-precision", str(int(cfg.get("geohash_precision", 6))),
+        "--points", str(int(cfg.get("points_sample", 900))),  # reuse your existing config key if you want
+        "--strata-geohash", str(int(cfg.get("strata_geohash", 5))),
+        "--min-per-cell", str(int(cfg.get("min_per_cell", 1))),
+        "--max-per-cell", str(int(cfg.get("max_per_cell", 30))),
     ]
-
+    
     country = cfg.get("country", "DE")
     if country:
         export_args += ["--country", str(country)]
-
+    
     y_from = cfg.get("year_from")
     y_to = cfg.get("year_to")
     if y_from is not None:
         export_args += ["--year-from", str(int(y_from))]
     if y_to is not None:
         export_args += ["--year-to", str(int(y_to))]
+    
+    # Optional: attach image metadata into output JSON
+    if cfg.get("images_index"):
+        export_args += ["--images-index", str(repo / cfg["images_index"])]
+    
+    # Optional: gzip output (writes .gz or appends .gz)
+    if cfg.get("gzip_json", False):
+        export_args += ["--gzip"]
 
-    if cfg.get("no_bin_month_counts", False):
-        export_args += ["--no-bin-month-counts"]
 
     subprocess.check_call(export_args)
 
