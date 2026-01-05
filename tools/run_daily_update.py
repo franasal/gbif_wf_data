@@ -223,8 +223,11 @@ def main():
     if cfg.get("gzip_json", False):
         export_args += ["--gzip"]
 
+    p = subprocess.run(export_args, text=True, capture_output=True)
+    print(p.stdout)
+    print(p.stderr)
+    p.check_returncode()
 
-    subprocess.check_call(export_args)
 
     # 6) Advance state
     new_state = {"last_interpreted_since": utc_today_date()}
