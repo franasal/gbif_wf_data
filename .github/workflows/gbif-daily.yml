@@ -2,7 +2,7 @@ name: Daily GBIF update
 
 on:
   schedule:
-    - cron: "17 3 * * *"  # runs daily, UTC
+    - cron: "17 3 * * *"  # daily, UTC
   workflow_dispatch: {}
 
 permissions:
@@ -14,11 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -27,34 +25,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Optional: cache pip to speed up installs
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-py311-${{ hashFiles('requirements.txt') }}
-
-      # If you still want a best-effort DB cache across runs, keep it.
-      # Note: cache is only saved at end of job; artifact below is the real checkpoint.
-      - name: Restore SQLite DB cache (best-effort)
-        uses: actions/cache@v4
-        with:
-          path: data/dwca.sqlite
-          key: dwca-sqlite-${{ runner.os }}-v1
-          restore-keys: |
-            dwca-sqlite-${{ runner.os }}-
-
-      - name: Run GBIF update (download + load DB)
+      - name: Run DB-only pipeline (GBIF download + load SQLite)
         env:
           GBIF_USER: ${{ secrets.GBIF_USER }}
           GBIF_PWD: ${{ secrets.GBIF_PWD }}
           GBIF_EMAIL: ${{ secrets.GBIF_EMAIL }}
           PYTHONUNBUFFERED: "1"
         run: |
-          python -u tools/gbif_incremental_update.py
-          # If your repo still uses tools/run_daily_update.py to do the DB step,
-          # replace the line above with:
-          # python -u tools/run_daily_update.py --db-only
+          python -u tools/run_daily_update.py --db-only
 
       - name: Upload DB checkpoint artifact
         uses: actions/upload-artifact@v4
@@ -63,7 +41,6 @@ jobs:
           path: data/dwca.sqlite
           retention-days: 7
 
-      # Keep small state files in git (optional, but useful)
       - name: Commit small state outputs (if changed)
         run: |
           git config user.name "gbif-bot"
@@ -85,11 +62,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -98,36 +73,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-py311-${{ hashFiles('requirements.txt') }}
-
       - name: Download DB checkpoint artifact
         uses: actions/download-artifact@v4
         with:
           name: dwca-sqlite
           path: data
 
-      - name: Export compact dataset (gzip)
+      - name: Run export-only pipeline (creates occurrences_compact.json.gz)
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          python -u tools/export_occurrences_compact.py \
-            --db data/dwca.sqlite \
-            --out data/occurrences_compact.json \
-            --names-json data/names_de.json \
-            --top-n 250 \
-            --points 2000 \
-            --strata-geohash 5 \
-            --min-per-cell 1 \
-            --max-per-cell 30 \
-            --country DE \
-            --year-from 2023 \
-            --year-to 2026 \
-            --images-index assets/plant_images/index.json \
-            --gzip
+          python -u tools/run_daily_update.py --export-only
 
       - name: Publish / update Release asset (latest)
         env:
