@@ -1,0 +1,2810 @@
+[
+  {
+    "scientificName": "Acer platanoides",
+    "de": "Spitz-Ahorn",
+    "taxonKey": 3189846,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Acer platanoides",
+      "scientificName": "Acer platanoides L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Achillea millefolium",
+    "de": "Gewöhnliche Schafgarbe",
+    "taxonKey": 3120060,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Achillea millefolium",
+      "scientificName": "Achillea millefolium L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Aconitum lycoctonum",
+    "de": "Wolfs-Eisenhut",
+    "taxonKey": 3033675,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Aconitum lycoctonum",
+      "scientificName": "Aconitum lycoctonum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Aegopodium podagraria",
+    "de": "Gewöhnlicher Giersch",
+    "taxonKey": 3034620,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Aegopodium podagraria",
+      "scientificName": "Aegopodium podagraria L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Aethusa cynapium",
+    "de": "Hundspetersilie",
+    "taxonKey": 5371825,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Aethusa cynapium",
+      "scientificName": "Aethusa cynapium L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Ajuga reptans",
+    "de": "Kriechender Günsel",
+    "taxonKey": 2927078,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ajuga reptans",
+      "scientificName": "Ajuga reptans L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Alchemilla vulgaris",
+    "de": "Gewöhnlicher Frauenmantel",
+    "taxonKey": 7890713,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Alchemilla vulgaris",
+      "scientificName": "Alchemilla vulgaris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Alliaria petiolata",
+    "de": "Knoblauchsrauke",
+    "taxonKey": 5376075,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Alliaria petiolata",
+      "scientificName": "Alliaria petiolata (M.Bieb.) Cavara & Grande",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Allium oleraceum",
+    "de": "Kohllauch",
+    "taxonKey": 2857071,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Allium oleraceum",
+      "scientificName": "Allium oleraceum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Allium ursinum",
+    "de": "Bär-Lauch",
+    "taxonKey": 2857601,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Allium ursinum",
+      "scientificName": "Allium ursinum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Amaranthus retroflexus",
+    "de": "Zurückgekrümmter Fuchsschwanz",
+    "taxonKey": 6109534,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Amaranthus retroflexus",
+      "scientificName": "Amaranthus retroflexus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Angelica sylvestris",
+    "de": "Wald-Engelwurz",
+    "taxonKey": 5371818,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Angelica sylvestris",
+      "scientificName": "Angelica sylvestris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Anthriscus sylvestris",
+    "de": "Wiesen-Kerbel",
+    "taxonKey": 5371742,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Anthriscus sylvestris",
+      "scientificName": "Anthriscus sylvestris (L.) Hoffm.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Aposeris foetida",
+    "de": "Hainsalat",
+    "taxonKey": 3094355,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Aposeris foetida",
+      "scientificName": "Aposeris foetida (L.) Less.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Arctium lappa",
+    "de": "Große Klette",
+    "taxonKey": 7353729,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Arctium lappa",
+      "scientificName": "Arctium lappa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Armoracia rusticana",
+    "de": "Gewöhnlicher Meerrettich",
+    "taxonKey": 3041022,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Armoracia rusticana",
+      "scientificName": "Armoracia rusticana P.Gaertn., B.Mey. & Scherb.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Artemisia absinthium",
+    "de": "Wermut",
+    "taxonKey": 3121319,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Artemisia absinthium",
+      "scientificName": "Artemisia absinthium L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Artemisia vulgaris",
+    "de": "Gewöhnlicher Beifuß",
+    "taxonKey": 3120946,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Artemisia vulgaris",
+      "scientificName": "Artemisia vulgaris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Arum maculatum",
+    "de": "Gefleckter Aronstab",
+    "taxonKey": 5330580,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Arum maculatum",
+      "scientificName": "Arum maculatum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Asparagus officinalis",
+    "de": "Gemüse-Spargel",
+    "taxonKey": 2768885,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Asparagus officinalis",
+      "scientificName": "Asparagus officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Atriplex patula",
+    "de": "Spreizende Melde",
+    "taxonKey": 3083728,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Atriplex patula",
+      "scientificName": "Atriplex patula L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Barbarea vulgaris",
+    "de": "Echte Winterkresse",
+    "taxonKey": 5708780,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Barbarea vulgaris",
+      "scientificName": "Barbarea vulgaris (L.) W.T.Aiton",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Bellis perennis",
+    "de": "Gänseblümchen",
+    "taxonKey": 3117424,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Bellis perennis",
+      "scientificName": "Bellis perennis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Berberis vulgaris",
+    "de": "Gewöhnliche Berberitze",
+    "taxonKey": 3033894,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Berberis vulgaris",
+      "scientificName": "Berberis vulgaris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Betonica officinalis",
+    "de": "Heil-Ziest",
+    "taxonKey": 2927280,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Betonica officinalis",
+      "scientificName": "Betonica officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Betula pendula",
+    "de": "Hänge-Birke",
+    "taxonKey": 5331916,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Betula pendula",
+      "scientificName": "Betula pendula Roth",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Bistorta officinalis",
+    "de": "Schlangen-Wiesenknöterich",
+    "taxonKey": 7925535,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Bistorta officinalis",
+      "scientificName": "Bistorta officinalis Raf.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Brassica rapa",
+    "de": "Rübsen",
+    "taxonKey": 7903057,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Brassica rapa",
+      "scientificName": "Brassica rapa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Bunium bulbocastanum",
+    "de": "Echter Knollenkümmel",
+    "taxonKey": 3034501,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Bunium bulbocastanum",
+      "scientificName": "Bunium bulbocastanum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Calamintha nepeta",
+    "de": "Echte Bergminze",
+    "taxonKey": 5341295,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Calamintha nepeta",
+      "scientificName": "Calamintha nepeta (L.) Savi",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Campanula patula",
+    "de": "Wiesen-Glockenblume",
+    "taxonKey": 5410564,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Campanula patula",
+      "scientificName": "Campanula patula L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Capsella bursa-pastoris",
+    "de": "Gewöhnliches Hirtentäschel",
+    "taxonKey": 5375388,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Capsella bursa-pastoris",
+      "scientificName": "Capsella bursa-pastoris (L.) Medik.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cardamine hirsuta",
+    "de": "Behaartes Schaumkraut",
+    "taxonKey": 3046258,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cardamine hirsuta",
+      "scientificName": "Cardamine hirsuta L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cardamine pratensis",
+    "de": "Wiesen-Schaumkraut",
+    "taxonKey": 7972010,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cardamine pratensis",
+      "scientificName": "Cardamine pratensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Carduus crispus",
+    "de": "Krause Distel",
+    "taxonKey": 3114649,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Carduus crispus",
+      "scientificName": "Carduus crispus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Carpinus betulus",
+    "de": "Gewöhnliche Hainbuche",
+    "taxonKey": 2875818,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Carpinus betulus",
+      "scientificName": "Carpinus betulus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Carum carvi",
+    "de": "Wiesen-Kümmel",
+    "taxonKey": 3034714,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Carum carvi",
+      "scientificName": "Carum carvi L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Castanea sativa",
+    "de": "Edelkastanie",
+    "taxonKey": 5333294,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Castanea sativa",
+      "scientificName": "Castanea sativa Mill.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Centaurea cyanus",
+    "de": "Kornblume",
+    "taxonKey": 3089561,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Centaurea cyanus",
+      "scientificName": "Centaurea cyanus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Centaurea jacea",
+    "de": "Wiesen-Flockenblume",
+    "taxonKey": 3128547,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Centaurea jacea",
+      "scientificName": "Centaurea jacea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Chamomilla recutita",
+    "de": "Echte Kamille",
+    "taxonKey": 5391086,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Chamomilla recutita",
+      "scientificName": "Chamomilla recutita (L.) Rauschert",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Chenopodium album",
+    "de": "Weißer Gänsefuß",
+    "taxonKey": 3083838,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Chenopodium album",
+      "scientificName": "Chenopodium album L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Chenopodium bonus-henricus",
+    "de": "Guter Heinrich",
+    "taxonKey": 3083843,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Chenopodium bonus-henricus",
+      "scientificName": "Chenopodium bonus-henricus L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Cichorium intybus",
+    "de": "Gewöhnliche Wegwarte",
+    "taxonKey": 5392252,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cichorium intybus",
+      "scientificName": "Cichorium intybus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cicuta virosa",
+    "de": "Giftiger Wasserschierling",
+    "taxonKey": 5371864,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cicuta virosa",
+      "scientificName": "Cicuta virosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cirsium oleraceum",
+    "de": "Kohldistel",
+    "taxonKey": 3113650,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cirsium oleraceum",
+      "scientificName": "Cirsium oleraceum (L.) Scop.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cirsium vulgare",
+    "de": "Gewöhnliche Kratzdistel",
+    "taxonKey": 3112801,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cirsium vulgare",
+      "scientificName": "Cirsium vulgare (Savi) Ten.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Claytonia perfoliata",
+    "de": "Gewöhnliches Tellerkraut",
+    "taxonKey": 7736011,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Claytonia perfoliata",
+      "scientificName": "Claytonia perfoliata Donn.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Colchicum autumnale",
+    "de": "Herbstzeitlose",
+    "taxonKey": 2739622,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Colchicum autumnale",
+      "scientificName": "Colchicum autumnale L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Conium maculatum",
+    "de": "Gefleckter Schierling",
+    "taxonKey": 3034807,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Conium maculatum",
+      "scientificName": "Conium maculatum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Convallaria majalis",
+    "de": "Gewöhnliches Maiglöckchen",
+    "taxonKey": 7459480,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Convallaria majalis",
+      "scientificName": "Convallaria majalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Conyza canadensis",
+    "de": "Kanadisches Berufkraut",
+    "taxonKey": 5404801,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Conyza canadensis",
+      "scientificName": "Conyza canadensis (L.) Cronquist",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Cornus mas",
+    "de": "Kornelkirsche",
+    "taxonKey": 3082263,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cornus mas",
+      "scientificName": "Cornus mas L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cornus sanguinea",
+    "de": "Blutroter Hartriegel",
+    "taxonKey": 3082234,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cornus sanguinea",
+      "scientificName": "Cornus sanguinea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Corylus avellana",
+    "de": "Gewöhnliche Hasel",
+    "taxonKey": 2875979,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Corylus avellana",
+      "scientificName": "Corylus avellana L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Crataegus monogyna",
+    "de": "Eingriffliger Weißdorn",
+    "taxonKey": 9220780,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Crataegus monogyna",
+      "scientificName": "Crataegus monogyna Jacq.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Daucus carota",
+    "de": "Wilde Möhre",
+    "taxonKey": 3034742,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Daucus carota",
+      "scientificName": "Daucus carota L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Digitalis purpurea",
+    "de": "Roter Fingerhut",
+    "taxonKey": 5414995,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Digitalis purpurea",
+      "scientificName": "Digitalis purpurea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Echium vulgare",
+    "de": "Gewöhnlicher Natternkopf",
+    "taxonKey": 2925892,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Echium vulgare",
+      "scientificName": "Echium vulgare L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Elymus repens",
+    "de": "Kriech-Quecke",
+    "taxonKey": 5290299,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Elymus repens",
+      "scientificName": "Elymus repens (L.) Gould",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Epilobium angustifolium",
+    "de": "Schmalblättriges Weidenröschen",
+    "taxonKey": 8406741,
+    "match": {
+      "matchType": "HIGHERRANK",
+      "confidence": 100,
+      "canonicalName": "Chamaenerion",
+      "scientificName": "Chamaenerion Seguier",
+      "rank": "GENUS",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Equisetum arvense",
+    "de": "Acker-Schachtelhalm",
+    "taxonKey": 7924597,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Equisetum arvense",
+      "scientificName": "Equisetum arvense L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Equisetum palustre",
+    "de": "Sumpf-Schachtelhalm",
+    "taxonKey": 2687932,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Equisetum palustre",
+      "scientificName": "Equisetum palustre L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Fagopyrum esculentum",
+    "de": "Echter Buchweizen",
+    "taxonKey": 2889373,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fagopyrum esculentum",
+      "scientificName": "Fagopyrum esculentum Moench",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Fagus sylvatica",
+    "de": "Rot-Buche",
+    "taxonKey": 2882316,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fagus sylvatica",
+      "scientificName": "Fagus sylvatica L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Fallopia japonica",
+    "de": "Japanischer Flügelknöterich",
+    "taxonKey": 5334357,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fallopia japonica",
+      "scientificName": "Fallopia japonica (Houtt.) Ronse Decr.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Ficaria verna",
+    "de": "Gewöhnliches Scharbockskraut",
+    "taxonKey": 9094061,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ficaria verna",
+      "scientificName": "Ficaria verna Huds.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Filipendula ulmaria",
+    "de": "Echtes Mädesüß",
+    "taxonKey": 2987999,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Filipendula ulmaria",
+      "scientificName": "Filipendula ulmaria (L.) Maxim.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Foeniculum vulgare",
+    "de": "Fenchel",
+    "taxonKey": 3034922,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Foeniculum vulgare",
+      "scientificName": "Foeniculum vulgare Mill.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Fragaria vesca",
+    "de": "Wald-Erdbeere",
+    "taxonKey": 3029817,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fragaria vesca",
+      "scientificName": "Fragaria vesca L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Fraxinus excelsior",
+    "de": "Gewöhnliche Esche",
+    "taxonKey": 3172358,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fraxinus excelsior",
+      "scientificName": "Fraxinus excelsior L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Galeopsis tetrahit",
+    "de": "Gewöhnlicher Hohlzahn",
+    "taxonKey": 5341300,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Galeopsis tetrahit",
+      "scientificName": "Galeopsis tetrahit L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Galinsoga quadriradiata",
+    "de": "Zottiges Franzosenkraut",
+    "taxonKey": 8298495,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Galinsoga quadriradiata",
+      "scientificName": "Galinsoga quadriradiata Ruiz & Pav.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Galium aparine",
+    "de": "Kletten-Labkraut",
+    "taxonKey": 2913548,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Galium aparine",
+      "scientificName": "Galium aparine L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Galium mollugo",
+    "de": "Wiesen-Labkraut",
+    "taxonKey": 9039392,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Galium mollugo",
+      "scientificName": "Galium mollugo L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Galium odoratum",
+    "de": "Waldmeister",
+    "taxonKey": 2914642,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Galium odoratum",
+      "scientificName": "Galium odoratum (L.) Scop.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Geranium pratense",
+    "de": "Wiesen-Storchschnabel",
+    "taxonKey": 2891304,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Geranium pratense",
+      "scientificName": "Geranium pratense L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Geum urbanum",
+    "de": "Echte Nelkenwurz",
+    "taxonKey": 5369652,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Geum urbanum",
+      "scientificName": "Geum urbanum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Glechoma hederacea",
+    "de": "Gewöhnlicher Gundermann",
+    "taxonKey": 2926557,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Glechoma hederacea",
+      "scientificName": "Glechoma hederacea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Helianthus tuberosus",
+    "de": "Topinambur",
+    "taxonKey": 3119175,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Helianthus tuberosus",
+      "scientificName": "Helianthus tuberosus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Heracleum sphondylium",
+    "de": "Wiesen-Bärenklau",
+    "taxonKey": 3034830,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Heracleum sphondylium",
+      "scientificName": "Heracleum sphondylium L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Hieracium pilosella",
+    "de": "Kleines Habichtskraut",
+    "taxonKey": 3136365,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hieracium pilosella",
+      "scientificName": "Hieracium pilosella L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Hippophae rhamnoides",
+    "de": "Sanddorn",
+    "taxonKey": 3039285,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hippophae rhamnoides",
+      "scientificName": "Hippophae rhamnoides L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Humulus lupulus",
+    "de": "Gewöhnlicher Hopfen",
+    "taxonKey": 2984535,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Humulus lupulus",
+      "scientificName": "Humulus lupulus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Hylotelephium telephium",
+    "de": "Purpur-Fetthenne",
+    "taxonKey": 2985865,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hylotelephium telephium",
+      "scientificName": "Hylotelephium telephium (L.) H.Ohba",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Hypericum perforatum",
+    "de": "Tüpfel-Johanniskraut",
+    "taxonKey": 3189486,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hypericum perforatum",
+      "scientificName": "Hypericum perforatum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Hypochaeris radicata",
+    "de": "Gewöhnliches Ferkelkraut",
+    "taxonKey": 3093702,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hypochaeris radicata",
+      "scientificName": "Hypochaeris radicata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Impatiens glandulifera",
+    "de": "Drüsiges Springkraut",
+    "taxonKey": 2891770,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Impatiens glandulifera",
+      "scientificName": "Impatiens glandulifera Royle",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Impatiens noli-tangere",
+    "de": "Großes Springkraut",
+    "taxonKey": 2891779,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Impatiens noli-tangere",
+      "scientificName": "Impatiens noli-tangere L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Inula helenium",
+    "de": "Echter Alant",
+    "taxonKey": 3148340,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Inula helenium",
+      "scientificName": "Inula helenium L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Juglans regia",
+    "de": "Echte Walnuss",
+    "taxonKey": 3054368,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Juglans regia",
+      "scientificName": "Juglans regia L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Juniperus communis",
+    "de": "Gewöhnlicher Wacholder",
+    "taxonKey": 2684709,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Juniperus communis",
+      "scientificName": "Juniperus communis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Juniperus sabina",
+    "de": "Sadebaum",
+    "taxonKey": 7963890,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Juniperus sabina",
+      "scientificName": "Juniperus sabina L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Knautia arvensis",
+    "de": "Witwenblume",
+    "taxonKey": 2888808,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Knautia arvensis",
+      "scientificName": "Knautia arvensis (L.) Coult.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lactuca serriola",
+    "de": "Kompass-Lattich",
+    "taxonKey": 3140490,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lactuca serriola",
+      "scientificName": "Lactuca serriola L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lamium album",
+    "de": "Weiße Taubnessel",
+    "taxonKey": 2926683,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lamium album",
+      "scientificName": "Lamium album L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lamium galeobdolon",
+    "de": "Goldnessel",
+    "taxonKey": 2927324,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lamium galeobdolon",
+      "scientificName": "Lamium galeobdolon (L.) L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lamium maculatum",
+    "de": "Gefleckte Taubnessel",
+    "taxonKey": 2926684,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lamium maculatum",
+      "scientificName": "Lamium maculatum (L.) L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lapsana communis",
+    "de": "Gewöhnlicher Rainkohl",
+    "taxonKey": 3134857,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lapsana communis",
+      "scientificName": "Lapsana communis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Larix decidua",
+    "de": "Europäische Lärche",
+    "taxonKey": 2686212,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Larix decidua",
+      "scientificName": "Larix decidua Mill.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lathyrus pratensis",
+    "de": "Wiesen-Platterbse",
+    "taxonKey": 5356701,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lathyrus pratensis",
+      "scientificName": "Lathyrus pratensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lemna minor",
+    "de": "Kleine Wasserlinse",
+    "taxonKey": 2867589,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lemna minor",
+      "scientificName": "Lemna minor L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Leontodon autumnalis",
+    "de": "Herbst-Löwenzahn",
+    "taxonKey": 8058115,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Leontodon autumnalis",
+      "scientificName": "Leontodon autumnalis Oeder, 1816",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lepidium campestre",
+    "de": "Feld-Kresse",
+    "taxonKey": 7703116,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lepidium campestre",
+      "scientificName": "Lepidium campestre (L.) W.T.Aiton",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Leucanthemum vulgare",
+    "de": "Magerwiesen-Margerite",
+    "taxonKey": 8848598,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Leucanthemum vulgare",
+      "scientificName": "Leucanthemum vulgare Lam.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lotus corniculatus",
+    "de": "Gewöhnlicher Hornklee",
+    "taxonKey": 5357013,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lotus corniculatus",
+      "scientificName": "Lotus corniculatus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lychnis flos-cuculi",
+    "de": "Kuckucks-Lichtnelke",
+    "taxonKey": 3085873,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lychnis flos-cuculi",
+      "scientificName": "Lychnis flos-cuculi L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Lysimachia nummularia",
+    "de": "Pfennigkraut",
+    "taxonKey": 3169379,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lysimachia nummularia",
+      "scientificName": "Lysimachia nummularia L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lysimachia vulgaris",
+    "de": "Gewöhnlicher Gilbweiderich",
+    "taxonKey": 3169386,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lysimachia vulgaris",
+      "scientificName": "Lysimachia vulgaris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Lythrum salicaria",
+    "de": "Blut-Weiderich",
+    "taxonKey": 3188736,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Lythrum salicaria",
+      "scientificName": "Lythrum salicaria L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Malva sylvestris",
+    "de": "Wilde Malve",
+    "taxonKey": 3152374,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Malva sylvestris",
+      "scientificName": "Malva sylvestris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Matricaria discoidea",
+    "de": "Strahlenlose Kamille",
+    "taxonKey": 3103791,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Matricaria discoidea",
+      "scientificName": "Matricaria discoidea DC.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Matricaria recutita",
+    "de": "Echte Kamille",
+    "taxonKey": 3103774,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Matricaria recutita",
+      "scientificName": "Matricaria recutita L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Medicago lupulina",
+    "de": "Hopfenklee",
+    "taxonKey": 2965201,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Medicago lupulina",
+      "scientificName": "Medicago lupulina L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Medicago sativa",
+    "de": "Luzerne",
+    "taxonKey": 9151957,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Medicago sativa",
+      "scientificName": "Medicago sativa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Melilotus officinalis",
+    "de": "Gewöhnlicher Steinklee",
+    "taxonKey": 8193111,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Melilotus officinalis",
+      "scientificName": "Melilotus officinalis (L.) Lam.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Mentha spicata",
+    "de": "Ährige Minze",
+    "taxonKey": 2927175,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Mentha spicata",
+      "scientificName": "Mentha spicata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Mespilus germanica",
+    "de": "Echte Mispel",
+    "taxonKey": 3031774,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Mespilus germanica",
+      "scientificName": "Mespilus germanica L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Meum athamanticum",
+    "de": "Bärwurz",
+    "taxonKey": 6026490,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Meum athamanticum",
+      "scientificName": "Meum athamanticum Jacq.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Mycelis muralis",
+    "de": "Mauerlattich",
+    "taxonKey": 3139040,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Mycelis muralis",
+      "scientificName": "Mycelis muralis (L.) Dumort.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Myosotis arvensis",
+    "de": "Acker-Vergissmeinnicht",
+    "taxonKey": 5341170,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Myosotis arvensis",
+      "scientificName": "Myosotis arvensis (L.) Hill",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Myrrhis odorata",
+    "de": "Süßdolde",
+    "taxonKey": 3034681,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Myrrhis odorata",
+      "scientificName": "Myrrhis odorata (L.) Scop.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Nasturtium officinale",
+    "de": "Gewöhnliche Brunnenkresse",
+    "taxonKey": 7701037,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Nasturtium officinale",
+      "scientificName": "Nasturtium officinale R.Br.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Oenothera biennis",
+    "de": "Zweijährige Nachtkerze",
+    "taxonKey": 3188924,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Oenothera biennis",
+      "scientificName": "Oenothera biennis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Ononis spinosa",
+    "de": "Dornige Hauhechel",
+    "taxonKey": 2977149,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ononis spinosa",
+      "scientificName": "Ononis spinosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Origanum vulgare",
+    "de": "Gewöhnlicher Dost",
+    "taxonKey": 2926612,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Origanum vulgare",
+      "scientificName": "Origanum vulgare L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Oxalis acetosella",
+    "de": "Wald-Sauerklee",
+    "taxonKey": 8211958,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Oxalis acetosella",
+      "scientificName": "Oxalis acetosella L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Papaver rhoeas",
+    "de": "Klatsch-Mohn",
+    "taxonKey": 2888443,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Papaver rhoeas",
+      "scientificName": "Papaver rhoeas L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Parthenocissus inserta",
+    "de": "Fünfblättriger Wilder Wein",
+    "taxonKey": 3039203,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Parthenocissus inserta",
+      "scientificName": "Parthenocissus inserta (A.Kern.) Fritsch",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pastinaca sativa",
+    "de": "Pastinak",
+    "taxonKey": 8262702,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pastinaca sativa",
+      "scientificName": "Pastinaca sativa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Persicaria hydropiper",
+    "de": "Wasserpfeffer",
+    "taxonKey": 8323622,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Persicaria hydropiper",
+      "scientificName": "Persicaria hydropiper (L.) Spach",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Phragmites australis",
+    "de": "Gewöhnliches Schilf",
+    "taxonKey": 5290149,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Phragmites australis",
+      "scientificName": "Phragmites australis (Cav.) Trin. ex Steud.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Physalis alkekengi",
+    "de": "Lampionblume",
+    "taxonKey": 7717,
+    "match": {
+      "matchType": "HIGHERRANK",
+      "confidence": 100,
+      "canonicalName": "Solanaceae",
+      "scientificName": "Solanaceae",
+      "rank": "FAMILY",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Phyteuma spicatum",
+    "de": "Ährige Teufelskralle",
+    "taxonKey": 3166841,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Phyteuma spicatum",
+      "scientificName": "Phyteuma spicatum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Picea abies",
+    "de": "Gewöhnliche Fichte",
+    "taxonKey": 5284884,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Picea abies",
+      "scientificName": "Picea abies (L.) H.Karst.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pimpinella saxifraga",
+    "de": "Kleine Bibernelle",
+    "taxonKey": 7622278,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pimpinella saxifraga",
+      "scientificName": "Pimpinella saxifraga L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pinus nigra",
+    "de": "Schwarz-Kiefer",
+    "taxonKey": 5284809,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pinus nigra",
+      "scientificName": "Pinus nigra J.F.Arnold",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pinus sylvestris",
+    "de": "Wald-Kiefer",
+    "taxonKey": 5285637,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pinus sylvestris",
+      "scientificName": "Pinus sylvestris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Plantago lanceolata",
+    "de": "Spitz-Wegerich",
+    "taxonKey": 8208358,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Plantago lanceolata",
+      "scientificName": "Plantago lanceolata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Plantago major",
+    "de": "Breit-Wegerich",
+    "taxonKey": 3189767,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Plantago major",
+      "scientificName": "Plantago major L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Polygonum aviculare",
+    "de": "Echter Vogelknöterich",
+    "taxonKey": 7821030,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Polygonum aviculare",
+      "scientificName": "Polygonum aviculare L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Populus tremula",
+    "de": "Zitter-Pappel",
+    "taxonKey": 3040249,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Populus tremula",
+      "scientificName": "Populus tremula L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Portulaca oleracea",
+    "de": "Europäischer Portulak",
+    "taxonKey": 3084719,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Portulaca oleracea",
+      "scientificName": "Portulaca oleracea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Potamogeton crispus",
+    "de": "Krauses Laichkraut",
+    "taxonKey": 5301162,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Potamogeton crispus",
+      "scientificName": "Potamogeton crispus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Potentilla anserina",
+    "de": "Gänse-Fingerkraut",
+    "taxonKey": 5366829,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Potentilla anserina",
+      "scientificName": "Potentilla anserina L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Potentilla reptans",
+    "de": "Kriechendes Fingerkraut",
+    "taxonKey": 5367273,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Potentilla reptans",
+      "scientificName": "Potentilla reptans L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Prunella vulgaris",
+    "de": "Kleine Braunelle",
+    "taxonKey": 5341297,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Prunella vulgaris",
+      "scientificName": "Prunella vulgaris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Prunus avium",
+    "de": "Vogel-Kirsche",
+    "taxonKey": 3020791,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Prunus avium",
+      "scientificName": "Prunus avium (L.) L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Prunus mahaleb",
+    "de": "Felsen-Kirsche",
+    "taxonKey": 3022789,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Prunus mahaleb",
+      "scientificName": "Prunus mahaleb L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Prunus padus",
+    "de": "Trauben-Kirsche",
+    "taxonKey": 3021037,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Prunus padus",
+      "scientificName": "Prunus padus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Prunus spinosa",
+    "de": "Schlehe",
+    "taxonKey": 3023221,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Prunus spinosa",
+      "scientificName": "Prunus spinosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pseudotsuga menziesii",
+    "de": "Gewöhnliche Douglasie",
+    "taxonKey": 2685796,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pseudotsuga menziesii",
+      "scientificName": "Pseudotsuga menziesii (Mirb.) Franco",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pulmonaria officinalis",
+    "de": "Geflecktes Lungenkraut",
+    "taxonKey": 5341204,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pulmonaria officinalis",
+      "scientificName": "Pulmonaria officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Quercus robur",
+    "de": "Stieleiche",
+    "taxonKey": 2878688,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Quercus robur",
+      "scientificName": "Quercus robur L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Ranunculus ficaria",
+    "de": "Gewöhnliches Scharbockskraut",
+    "taxonKey": 8397184,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ranunculus ficaria",
+      "scientificName": "Ranunculus ficaria Walter, 1788",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Raphanus raphanistrum",
+    "de": "Acker-Hederich",
+    "taxonKey": 3040983,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Raphanus raphanistrum",
+      "scientificName": "Raphanus raphanistrum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Reseda lutea",
+    "de": "Gelbe Resede",
+    "taxonKey": 3040252,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Reseda lutea",
+      "scientificName": "Reseda lutea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Ribes alpinum",
+    "de": "Alpen-Johannisbeere",
+    "taxonKey": 2986184,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ribes alpinum",
+      "scientificName": "Ribes alpinum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Ribes uva-crispa",
+    "de": "Stachelbeere",
+    "taxonKey": 2986185,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ribes uva-crispa",
+      "scientificName": "Ribes uva-crispa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Robinia pseudoacacia",
+    "de": "Gewöhnliche Scheinakazie",
+    "taxonKey": 5352251,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Robinia pseudoacacia",
+      "scientificName": "Robinia pseudoacacia L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rorippa palustris",
+    "de": "Gewöhnliche Sumpfkresse",
+    "taxonKey": 3053168,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rorippa palustris",
+      "scientificName": "Rorippa palustris (L.) Besser",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rosa canina",
+    "de": "Hunds-Rose",
+    "taxonKey": 3002461,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rosa canina",
+      "scientificName": "Rosa canina L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rubus fruticosus",
+    "de": "Echte Brombeere",
+    "taxonKey": 8436459,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rubus fruticosus",
+      "scientificName": "Rubus fruticosus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rubus idaeus",
+    "de": "Himbeere",
+    "taxonKey": 2993094,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rubus idaeus",
+      "scientificName": "Rubus idaeus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rumex acetosa",
+    "de": "Wiesen-Sauerampfer",
+    "taxonKey": 2888951,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rumex acetosa",
+      "scientificName": "Rumex acetosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rumex arifolius",
+    "de": "Berg-Sauerampfer",
+    "taxonKey": 4036273,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rumex arifolius",
+      "scientificName": "Rumex arifolius All.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Salix alba",
+    "de": "Silber-Weide",
+    "taxonKey": 5372513,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Salix alba",
+      "scientificName": "Salix alba L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Salvia glutinosa",
+    "de": "Klebriger Salbei",
+    "taxonKey": 2927026,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Salvia glutinosa",
+      "scientificName": "Salvia glutinosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Salvia pratensis",
+    "de": "Wiesen-Salbei",
+    "taxonKey": 2927007,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Salvia pratensis",
+      "scientificName": "Salvia pratensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sambucus nigra",
+    "de": "Schwarzer Holunder",
+    "taxonKey": 2888728,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sambucus nigra",
+      "scientificName": "Sambucus nigra L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sanguisorba minor",
+    "de": "Kleiner Wiesenknopf",
+    "taxonKey": 3029430,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sanguisorba minor",
+      "scientificName": "Sanguisorba minor Scop.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Sanguisorba officinalis",
+    "de": "Großer Wiesenknopf",
+    "taxonKey": 3029627,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sanguisorba officinalis",
+      "scientificName": "Sanguisorba officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Schoenoplectus lacustris",
+    "de": "Gewöhnliche Teichsimse",
+    "taxonKey": 2710941,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Schoenoplectus lacustris",
+      "scientificName": "Schoenoplectus lacustris (L.) Palla",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Scorzoneroides autumnalis",
+    "de": "Herbst-Löwenzahn",
+    "taxonKey": 3133512,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Scorzoneroides autumnalis",
+      "scientificName": "Scorzoneroides autumnalis (L.) Moench",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sedum album",
+    "de": "Weiße Fetthenne",
+    "taxonKey": 5362008,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sedum album",
+      "scientificName": "Sedum album L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sedum telephium",
+    "de": "Purpur-Fetthenne",
+    "taxonKey": 5361997,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sedum telephium",
+      "scientificName": "Sedum telephium Willd.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Silaum silaus",
+    "de": "Wiesensilge",
+    "taxonKey": 6027388,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Silaum silaus",
+      "scientificName": "Silaum silaus (L.) Schinz & Thell.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Silene flos-cuculi",
+    "de": "Kuckucks-Lichtnelke",
+    "taxonKey": 5384738,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Silene flos-cuculi",
+      "scientificName": "Silene flos-cuculi (L.) Greuter & Burdet",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Silene vulgaris",
+    "de": "Taubenkropf-Leimkraut",
+    "taxonKey": 9172281,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Silene vulgaris",
+      "scientificName": "Silene vulgaris (Moench) Garcke",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sinapis arvensis",
+    "de": "Acker-Senf",
+    "taxonKey": 3047598,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sinapis arvensis",
+      "scientificName": "Sinapis arvensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sisymbrium officinale",
+    "de": "Weg-Rauke",
+    "taxonKey": 3046890,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sisymbrium officinale",
+      "scientificName": "Sisymbrium officinale (L.) Scop.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Solidago canadensis",
+    "de": "Kanadische Goldrute",
+    "taxonKey": 5389029,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Solidago canadensis",
+      "scientificName": "Solidago canadensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sonchus asper",
+    "de": "Raue Gänsedistel",
+    "taxonKey": 3105782,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sonchus asper",
+      "scientificName": "Sonchus asper (L.) Hill",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sorbus aria",
+    "de": "Gewöhnliche Mehlbeere",
+    "taxonKey": 5015,
+    "match": {
+      "matchType": "HIGHERRANK",
+      "confidence": 100,
+      "canonicalName": "Rosaceae",
+      "scientificName": "Rosaceae",
+      "rank": "FAMILY",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sorbus aucuparia",
+    "de": "Eberesche",
+    "taxonKey": 3012167,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sorbus aucuparia",
+      "scientificName": "Sorbus aucuparia L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sorbus torminalis",
+    "de": "Elsbeere",
+    "taxonKey": 3012567,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sorbus torminalis",
+      "scientificName": "Sorbus torminalis (L.) Crantz",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Sparganium erectum",
+    "de": "Astiger Igelkolben",
+    "taxonKey": 7679536,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sparganium erectum",
+      "scientificName": "Sparganium erectum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Stachys officinalis",
+    "de": "Heil-Ziest",
+    "taxonKey": 7777194,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Stachys officinalis",
+      "scientificName": "Stachys officinalis (L.) Franch., 1885",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Stachys palustris",
+    "de": "Sumpf-Ziest",
+    "taxonKey": 2927245,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Stachys palustris",
+      "scientificName": "Stachys palustris L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Stachys sylvatica",
+    "de": "Wald-Ziest",
+    "taxonKey": 2927282,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Stachys sylvatica",
+      "scientificName": "Stachys sylvatica L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Stellaria aquatica",
+    "de": "Wasserdarm",
+    "taxonKey": 5384501,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Stellaria aquatica",
+      "scientificName": "Stellaria aquatica (L.) Scop.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Stellaria media",
+    "de": "Vogel-Sternmiere",
+    "taxonKey": 5384604,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Stellaria media",
+      "scientificName": "Stellaria media (L.) Vill.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Symphytum officinale",
+    "de": "Gewöhnlicher Beinwell",
+    "taxonKey": 7558421,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Symphytum officinale",
+      "scientificName": "Symphytum officinale L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Taraxacum officinale",
+    "de": "Löwenzahn",
+    "taxonKey": 5394163,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Taraxacum officinale",
+      "scientificName": "Taraxacum officinale Weber ex F.H.Wigg.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Taxus baccata",
+    "de": "Europäische Eibe",
+    "taxonKey": 5284517,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Taxus baccata",
+      "scientificName": "Taxus baccata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Thlaspi arvense",
+    "de": "Acker-Hellerkraut",
+    "taxonKey": 3052680,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Thlaspi arvense",
+      "scientificName": "Thlaspi arvense L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Thymus pulegioides",
+    "de": "Arznei-Thymian",
+    "taxonKey": 5341443,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Thymus pulegioides",
+      "scientificName": "Thymus pulegioides L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Tilia platyphyllos",
+    "de": "Sommer-Linde",
+    "taxonKey": 3152048,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Tilia platyphyllos",
+      "scientificName": "Tilia platyphyllos Scop.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Tragopogon pratensis",
+    "de": "Wiesen-Bocksbart",
+    "taxonKey": 5386897,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Tragopogon pratensis",
+      "scientificName": "Tragopogon pratensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Trifolium pratense",
+    "de": "Rot-Klee",
+    "taxonKey": 8324121,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Trifolium pratense",
+      "scientificName": "Trifolium pratense L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Tussilago farfara",
+    "de": "Huflattich",
+    "taxonKey": 3149879,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Tussilago farfara",
+      "scientificName": "Tussilago farfara L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Typha latifolia",
+    "de": "Breitblättriger Rohrkolben",
+    "taxonKey": 5289423,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Typha latifolia",
+      "scientificName": "Typha latifolia L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Ulmus glabra",
+    "de": "Berg-Ulme",
+    "taxonKey": 5361866,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ulmus glabra",
+      "scientificName": "Ulmus glabra Huds.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Urtica dioica",
+    "de": "Große Brennnessel",
+    "taxonKey": 7960979,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Urtica dioica",
+      "scientificName": "Urtica dioica L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Vaccinium myrtillus",
+    "de": "Heidelbeere",
+    "taxonKey": 2882833,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Vaccinium myrtillus",
+      "scientificName": "Vaccinium myrtillus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Vaccinium vitis-idaea",
+    "de": "Preiselbeere",
+    "taxonKey": 2882835,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Vaccinium vitis-idaea",
+      "scientificName": "Vaccinium vitis-idaea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Valeriana officinalis",
+    "de": "Arznei-Baldrian",
+    "taxonKey": 2888763,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Valeriana officinalis",
+      "scientificName": "Valeriana officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Valerianella locusta",
+    "de": "Gewöhnlicher Feldsalat",
+    "taxonKey": 2888778,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Valerianella locusta",
+      "scientificName": "Valerianella locusta (L.) Laterr.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Verbascum densiflorum",
+    "de": "Großblütige Königskerze",
+    "taxonKey": 3171939,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Verbascum densiflorum",
+      "scientificName": "Verbascum densiflorum Bertol.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Verbena officinalis",
+    "de": "Gewöhnliches Eisenkraut",
+    "taxonKey": 2925529,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Verbena officinalis",
+      "scientificName": "Verbena officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Veronica beccabunga",
+    "de": "Bachbungen-Ehrenpreis",
+    "taxonKey": 3172062,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Veronica beccabunga",
+      "scientificName": "Veronica beccabunga L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Veronica persica",
+    "de": "Persischer Ehrenpreis",
+    "taxonKey": 3172077,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Veronica persica",
+      "scientificName": "Veronica persica Poir.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Vicia cracca",
+    "de": "Vogel-Wicke",
+    "taxonKey": 2975287,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Vicia cracca",
+      "scientificName": "Vicia cracca L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Viola odorata",
+    "de": "Wohlriechendes Veilchen",
+    "taxonKey": 5331181,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Viola odorata",
+      "scientificName": "Viola odorata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Viola tricolor",
+    "de": "Wildes Stiefmütterchen",
+    "taxonKey": 5331347,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Viola tricolor",
+      "scientificName": "Viola tricolor L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Vitis vinifera",
+    "de": "Weinrebe",
+    "taxonKey": 5372392,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Vitis vinifera",
+      "scientificName": "Vitis vinifera L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  }
+]

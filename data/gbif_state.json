@@ -1,1 +1,8 @@
-{ "last_interpreted_since": "2026-01-01" }
+{
+  "last_interpreted_since": "2026-01-01",
+  "pending": {
+    "download_key": "0075485-251120083545085",
+    "since": "2025-12-30",
+    "requested_at": "2026-01-05T22:17:57Z"
+  }
+}
