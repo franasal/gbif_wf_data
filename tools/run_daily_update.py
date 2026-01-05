@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import subprocess
@@ -18,6 +19,10 @@ def utc_today_date() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def load_json(path: Path, default):
     if not path.exists():
         return default
@@ -27,6 +32,12 @@ def load_json(path: Path, default):
 def save_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def run(cmd: list[str], env: dict | None = None) -> None:
+    # Stream output live (no "hang" due to capture_output)
+    print("RUN:", " ".join(cmd), flush=True)
+    subprocess.check_call(cmd, env=env)
 
 
 def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: str) -> dict:
@@ -58,6 +69,7 @@ def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: s
     if y_to is not None:
         preds.append({"type": "lessThanOrEquals", "key": "YEAR", "value": str(int(y_to))})
 
+    # Incremental delta
     preds.append({"type": "greaterThanOrEquals", "key": "LAST_INTERPRETED", "value": interpreted_since})
 
     return {"type": "and", "predicates": preds}
@@ -79,7 +91,7 @@ def request_download(user: str, pwd: str, email: str, predicate: dict) -> str:
     return key
 
 
-def poll_until_succeeded(key: str, timeout_s: int = 3600, poll_s: int = 30) -> None:
+def poll_until_succeeded(key: str, timeout_s: int = 3 * 3600, poll_s: int = 30) -> None:
     deadline = time.time() + timeout_s
     last = None
     while time.time() < deadline:
@@ -87,7 +99,7 @@ def poll_until_succeeded(key: str, timeout_s: int = 3600, poll_s: int = 30) -> N
         r.raise_for_status()
         status = r.json().get("status")
         if status != last:
-            print(f"GBIF {key}: {status}")
+            print(f"GBIF {key}: {status}", flush=True)
             last = status
         if status == "SUCCEEDED":
             return
@@ -107,7 +119,39 @@ def download_zip(key: str, out_zip: Path) -> None:
                     f.write(chunk)
 
 
-def main():
+def compute_since(state: dict, cfg: dict) -> tuple[str, str]:
+    """
+    Returns (since_date_iso, last_state_value_used)
+    """
+    last = state.get("last_interpreted_since") or utc_today_date()
+    overlap_days = int(cfg.get("overlap_days", 2))
+
+    try:
+        last_dt = datetime.fromisoformat(last).replace(tzinfo=timezone.utc)
+    except Exception:
+        last_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    since_dt = last_dt - timedelta(days=max(0, overlap_days))
+    since = since_dt.date().isoformat()
+    return since, last
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Daily GBIF update pipeline (supports db-only/export-only).")
+    ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
+    ap.add_argument("--export-only", action="store_true", help="Run export only (requires existing data/dwca.sqlite).")
+    args = ap.parse_args()
+
+    if args.db_only and args.export_only:
+        raise SystemExit("Use at most one of --db-only or --export-only.")
+
+    mode = "all"
+    if args.db_only:
+        mode = "db-only"
+    elif args.export_only:
+        mode = "export-only"
+    print(f"Mode: {mode}", flush=True)
+
     repo = Path(__file__).resolve().parents[1]
 
     # Inputs you maintain
@@ -139,101 +183,124 @@ def main():
     cfg = load_json(cfg_path, {})
     state = load_json(state_path, {"last_interpreted_since": utc_today_date()})
 
-    # 0) Resolve taxa
-    subprocess.check_call([
-        "python", str(resolver),
-        "--names", str(names_path),
-        "--out", str(resolved_path),
-        "--cache", str(cache_path),
-    ])
+    # ---------- DB STEP ----------
+    if mode in ("all", "db-only"):
+        # 0) Resolve taxa
+        run([
+            "python", "-u", str(resolver),
+            "--names", str(names_path),
+            "--out", str(resolved_path),
+            "--cache", str(cache_path),
+        ])
 
-    resolved_plants = load_json(resolved_path, [])
-    if not isinstance(resolved_plants, list) or not resolved_plants:
-        raise SystemExit(f"{resolved_path} is empty or invalid.")
+        resolved_plants = load_json(resolved_path, [])
+        if not isinstance(resolved_plants, list) or not resolved_plants:
+            raise SystemExit(f"{resolved_path} is empty or invalid.")
 
-    # 1) Compute delta start with overlap
-    last = state.get("last_interpreted_since") or utc_today_date()
-    overlap_days = int(cfg.get("overlap_days", 2))
-    try:
-        last_dt = datetime.fromisoformat(last).replace(tzinfo=timezone.utc)
-    except Exception:
-        last_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        # 1) Compute delta start with overlap
+        since, last_used = compute_since(state, cfg)
+        overlap_days = int(cfg.get("overlap_days", 2))
+        print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days}, last_state={last_used})", flush=True)
 
-    since_dt = last_dt - timedelta(days=max(0, overlap_days))
-    since = since_dt.date().isoformat()
-    print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days})")
+        # 2) Request GBIF download
+        user = os.environ["GBIF_USER"]
+        pwd = os.environ["GBIF_PWD"]
+        email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
 
-    # 2) Request GBIF download
-    user = os.environ["GBIF_USER"]
-    pwd = os.environ["GBIF_PWD"]
-    email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
+        predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
+        key = request_download(user, pwd, email, predicate)
+        print(f"Requested download: {key}", flush=True)
 
-    predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
-    key = request_download(user, pwd, email, predicate)
-    print(f"Requested download: {key}")
-    poll_until_succeeded(key)
+        # Save pending info immediately (useful if export job fails later)
+        state["pending"] = {
+            "download_key": key,
+            "since": since,
+            "requested_at": utc_now_iso(),
+        }
+        save_json(state_path, state)
 
-    # 3) Download + unzip
-    tmp = repo / ".tmp_gbif" / key
-    tmp.mkdir(parents=True, exist_ok=True)
-    zip_path = tmp / f"{key}.zip"
-    download_zip(key, zip_path)
+        poll_until_succeeded(key)
 
-    with zipfile.ZipFile(zip_path, "r") as z:
-        z.extractall(tmp)
+        # 3) Download + unzip
+        tmp = repo / ".tmp_gbif" / key
+        tmp.mkdir(parents=True, exist_ok=True)
+        zip_path = tmp / f"{key}.zip"
 
-    # 4) Load into SQLite (table: occ). Use --no-raw to avoid DB bloat.
-    subprocess.check_call([
-        "python", str(loader), "load",
-        "--dwca", str(tmp),
-        "--db", str(db_path),
-        "--no-raw",
-    ])
+        if not zip_path.exists() or zip_path.stat().st_size == 0:
+            download_zip(key, zip_path)
+        else:
+            print(f"ZIP already present: {zip_path}", flush=True)
 
-    # 5) Export compact JSON
-    export_args = [
-        "python", str(exporter),
-        "--db", str(db_path),
-        "--out", str(out_json),
-        "--names-json", str(names_path),
-    
-        "--top-n", str(int(cfg.get("top_n", 50))),
-        "--points", str(int(cfg.get("points_sample", 900))),  # reuse your existing config key if you want
-        "--strata-geohash", str(int(cfg.get("strata_geohash", 5))),
-        "--min-per-cell", str(int(cfg.get("min_per_cell", 1))),
-        "--max-per-cell", str(int(cfg.get("max_per_cell", 30))),
-    ]
-    
-    country = cfg.get("country", "DE")
-    if country:
-        export_args += ["--country", str(country)]
-    
-    y_from = cfg.get("year_from")
-    y_to = cfg.get("year_to")
-    if y_from is not None:
-        export_args += ["--year-from", str(int(y_from))]
-    if y_to is not None:
-        export_args += ["--year-to", str(int(y_to))]
-    
-    # Optional: attach image metadata into output JSON
-    if cfg.get("images_index"):
-        export_args += ["--images-index", str(repo / cfg["images_index"])]
-    
-    # Optional: gzip output (writes .gz or appends .gz)
-    if cfg.get("gzip_json", False):
-        export_args += ["--gzip"]
+        # Extract (idempotent-ish)
+        with zipfile.ZipFile(zip_path, "r") as z:
+            z.extractall(tmp)
 
-    p = subprocess.run(export_args, text=True, capture_output=True)
-    print(p.stdout)
-    print(p.stderr)
-    p.check_returncode()
+        # 4) Load into SQLite (table: occ). Use --no-raw to avoid DB bloat.
+        run([
+            "python", "-u", str(loader), "load",
+            "--dwca", str(tmp),
+            "--db", str(db_path),
+            "--no-raw",
+        ])
 
+        print(f"DB ready: {db_path}", flush=True)
 
-    # 6) Advance state
-    new_state = {"last_interpreted_since": utc_today_date()}
-    save_json(state_path, new_state)
-    print(f"Updated state: {new_state}")
-    print(f"Wrote: {out_json}")
+        if mode == "db-only":
+            print("DB-only run finished. Export is handled by the next job.", flush=True)
+            return
+
+    # ---------- EXPORT STEP ----------
+    # Export step needs:
+    # - data/dwca.sqlite present
+    # - data/names_de.json present
+    if mode in ("all", "export-only"):
+        if not db_path.exists():
+            raise SystemExit(f"Missing DB: {db_path} (did you run db-only job / restore artifact?)")
+
+        export_args = [
+            "python", "-u", str(exporter),
+            "--db", str(db_path),
+            "--out", str(out_json),
+            "--names-json", str(names_path),
+            "--top-n", str(int(cfg.get("top_n", 50))),
+            "--points", str(int(cfg.get("points_sample", 900))),
+            "--strata-geohash", str(int(cfg.get("strata_geohash", 5))),
+            "--min-per-cell", str(int(cfg.get("min_per_cell", 1))),
+            "--max-per-cell", str(int(cfg.get("max_per_cell", 30))),
+        ]
+
+        country = cfg.get("country", "DE")
+        if country:
+            export_args += ["--country", str(country)]
+
+        y_from = cfg.get("year_from")
+        y_to = cfg.get("year_to")
+        if y_from is not None:
+            export_args += ["--year-from", str(int(y_from))]
+        if y_to is not None:
+            export_args += ["--year-to", str(int(y_to))]
+
+        # Optional: attach image metadata into output JSON
+        if cfg.get("images_index"):
+            export_args += ["--images-index", str(repo / cfg["images_index"])]
+
+        # Optional: gzip output (writes .gz or appends .gz)
+        if cfg.get("gzip_json", False):
+            export_args += ["--gzip"]
+
+        run(export_args)
+
+        # 6) Advance state ONLY after export success
+        new_state = dict(state)
+        new_state["last_interpreted_since"] = utc_today_date()
+        # clear pending if present
+        if "pending" in new_state:
+            new_state["pending"]["completed_at"] = utc_now_iso()
+            new_state["pending"]["status"] = "exported"
+        save_json(state_path, new_state)
+
+        print(f"Updated state: last_interpreted_since={new_state['last_interpreted_since']}", flush=True)
+        print(f"Wrote: {out_json}", flush=True)
 
 
 if __name__ == "__main__":
