@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
@@ -18,6 +19,15 @@ def utc_now_iso() -> str:
 def connect(db_path: str) -> sqlite3.Connection:
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
+
+    # Read-performance pragmas (safe for CI)
+    try:
+        con.execute("PRAGMA temp_store=MEMORY;")
+        con.execute("PRAGMA cache_size=-200000;")  # ~200MB cache
+        con.execute("PRAGMA mmap_size=268435456;")  # 256MB
+    except Exception:
+        pass
+
     return con
 
 
@@ -92,23 +102,26 @@ def load_images_index(path: Optional[str]) -> Dict[str, dict]:
         return {}
 
     if not os.path.exists(path):
-        print(f"[warn] images-index not found, skipping: {path}")
+        print(f"[warn] images-index not found, skipping: {path}", flush=True)
         return {}
 
     try:
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            raw = f.read()
+        if not raw.strip():
+            print(f"[warn] images-index is empty, skipping: {path}", flush=True)
+            return {}
+        data = json.loads(raw)
     except Exception as e:
-        print(f"[warn] images-index could not be read, skipping: {path} ({e})")
+        print(f"[warn] images-index could not be read, skipping: {path} ({e})", flush=True)
         return {}
 
     if isinstance(data, dict) and "plants" in data and isinstance(data["plants"], dict):
         return data["plants"]
     if isinstance(data, dict):
-        # direct mapping
         return data
 
-    print(f"[warn] images-index has unexpected JSON type ({type(data)}), skipping: {path}")
+    print(f"[warn] images-index has unexpected JSON type ({type(data)}), skipping: {path}", flush=True)
     return {}
 
 
@@ -171,6 +184,53 @@ def stable_u32(*parts: object) -> int:
     return int.from_bytes(h, "big", signed=False)
 
 
+def ensure_indexes(
+    con: sqlite3.Connection,
+    table: str,
+    col_sci: str,
+    col_country: Optional[str],
+    col_year: Optional[str],
+) -> None:
+    """
+    Create indexes that match the exporter filters so SQLite stops doing table scans.
+    """
+    cur = con.cursor()
+
+    # Exact filter column
+    cur.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{col_sci} ON {table}({col_sci})")
+
+    # Composite for common filters
+    if col_country and col_year:
+        cur.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_{col_country}_{col_year}_{col_sci} "
+            f"ON {table}({col_country},{col_year},{col_sci})"
+        )
+        cur.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_{col_country}_{col_year} "
+            f"ON {table}({col_country},{col_year})"
+        )
+    elif col_country:
+        cur.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_{col_country}_{col_sci} "
+            f"ON {table}({col_country},{col_sci})"
+        )
+    elif col_year:
+        cur.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_{col_year}_{col_sci} "
+            f"ON {table}({col_year},{col_sci})"
+        )
+
+    if col_year:
+        cur.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{col_year} ON {table}({col_year})")
+
+    con.commit()
+    try:
+        cur.execute("ANALYZE")
+        con.commit()
+    except Exception:
+        pass
+
+
 def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     if gzip_enabled or path.endswith(".gz"):
@@ -178,12 +238,12 @@ def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
             path = path + ".gz"
         with gzip.open(path, "wt", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-        print(f"\nWrote (gzip): {path}")
+        print(f"\nWrote (gzip): {path}", flush=True)
         return path
     else:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-        print(f"\nWrote: {path}")
+        print(f"\nWrote: {path}", flush=True)
         return path
 
 
@@ -202,6 +262,10 @@ def main():
     ap.add_argument("--max-per-cell", type=int, default=30, help="Cap samples per cell (default: 30)")
     ap.add_argument("--chunk-size", type=int, default=20000, help="DB fetch chunk size (default: 20000)")
 
+    ap.add_argument("--progress-every", type=int, default=200000, help="Log progress every N rows per pass (default: 200000)")
+    ap.add_argument("--ensure-indexes", action="store_true", help="Create/refresh SQLite indexes for faster export")
+    ap.add_argument("--analyze", action="store_true", help="Run ANALYZE (stats) even if not creating indexes")
+
     ap.add_argument("--region-name", default="Germany (offline)")
     ap.add_argument("--region-lat", type=float, default=51.0)
     ap.add_argument("--region-lon", type=float, default=10.0)
@@ -214,11 +278,14 @@ def main():
     args = ap.parse_args()
 
     try:
+        t_all = time.time()
+
         con = connect(args.db)
         table = pick_occurrence_table(con)
         cols = table_columns(con, table)
 
-        col_sci = resolve_col(cols, ["scientificName", "species", "speciesName", "taxon_name"])
+        # Prefer 'species' first (less author-noise, usually better grouping)
+        col_sci = resolve_col(cols, ["species", "scientificName", "speciesName", "taxon_name"])
         col_taxon = resolve_col(cols, ["taxonKey", "taxon_key"], required=False)
         col_lat = resolve_col(cols, ["decimalLatitude", "lat", "latitude"])
         col_lon = resolve_col(cols, ["decimalLongitude", "lon", "longitude"])
@@ -227,6 +294,16 @@ def main():
         col_month = resolve_col(cols, ["month"], required=False)
         col_country = resolve_col(cols, ["countryCode", "country_code", "country"], required=False)
         col_event = resolve_col(cols, ["eventDate", "event_date"], required=False)
+
+        if args.ensure_indexes:
+            print(f"[info] ensuring indexes on table={table} sci_col={col_sci}", flush=True)
+            ensure_indexes(con, table=table, col_sci=col_sci, col_country=col_country, col_year=col_year)
+        elif args.analyze:
+            try:
+                print("[info] running ANALYZE", flush=True)
+                con.execute("ANALYZE")
+            except Exception:
+                pass
 
         name_map = load_name_map(args.names_json)
         images_map = load_images_index(args.images_index)
@@ -289,14 +366,22 @@ def main():
         if not top_species:
             raise RuntimeError("No species matched your filters. Check country/year and DB content.")
 
+        print(
+            f"[info] table={table} sci_col={col_sci} plants={len(top_species)} points_target={args.points}",
+            flush=True,
+        )
+
         plants_out: Dict[str, dict] = {}
         strata_prec = int(args.strata_geohash)
         points_target = int(args.points)
         min_per_cell = max(0, int(args.min_per_cell))
         max_per_cell = max(1, int(args.max_per_cell))
         chunk_size = max(1000, int(args.chunk_size))
+        progress_every = max(50000, int(args.progress_every))
 
-        for sci in top_species:
+        for i, sci in enumerate(top_species, start=1):
+            t0 = time.time()
+
             where2 = list(where)
             params2 = list(params)
             where2.append(f"{col_sci} = ?")
@@ -368,6 +453,7 @@ def main():
 
             # Pass 1: cell counts + bbox + last_obs
             cell_counts: Dict[str, int] = {}
+            processed1 = 0
             cur = con.execute(q_stream, params2)
             while True:
                 chunk = cur.fetchmany(chunk_size)
@@ -412,6 +498,14 @@ def main():
                     cell = geohash_encode(latf, lonf, precision=strata_prec)
                     cell_counts[cell] = cell_counts.get(cell, 0) + 1
 
+                    processed1 += 1
+                    if processed1 % progress_every == 0:
+                        elapsed = time.time() - t0
+                        print(
+                            f"[{i}/{len(top_species)}] {sci}: pass1 processed={processed1:,} cells={len(cell_counts):,} elapsed={elapsed:.1f}s",
+                            flush=True,
+                        )
+
             # Determine per-cell quotas (sqrt weighting)
             weights: Dict[str, float] = {c: (n ** 0.5) for c, n in cell_counts.items() if n > 0}
 
@@ -433,26 +527,27 @@ def main():
 
                 if current > points_target:
                     over = current - points_target
-                    i = 0
+                    j = 0
                     while over > 0 and cells_sorted:
-                        c = cells_sorted[i % len(cells_sorted)]
+                        c = cells_sorted[j % len(cells_sorted)]
                         if quotas[c] > min_per_cell:
                             quotas[c] -= 1
                             over -= 1
-                        i += 1
+                        j += 1
                 elif current < points_target:
                     under = points_target - current
-                    i = 0
+                    j = 0
                     while under > 0 and cells_sorted:
-                        c = cells_sorted[i % len(cells_sorted)]
+                        c = cells_sorted[j % len(cells_sorted)]
                         if quotas[c] < max_per_cell:
                             quotas[c] += 1
                             under -= 1
-                        i += 1
+                        j += 1
 
                 # Pass 2: reservoir sampling per cell (deterministic)
                 reservoirs: Dict[str, Tuple[int, List[list]]] = {c: (0, []) for c, q in quotas.items() if q > 0}
 
+                processed2 = 0
                 cur2 = con.execute(q_stream, params2)
                 while True:
                     chunk = cur2.fetchmany(chunk_size)
@@ -495,13 +590,19 @@ def main():
                         if len(res) < k:
                             res.append(point)
                         else:
-                            # classic reservoir: replace with prob k/seen
-                            # deterministic pseudo-random index:
                             j = stable_u32(sci, cell, seen, latf, lonf, yi, mi) % seen
                             if j < k:
                                 res[j] = point
 
                         reservoirs[cell] = (seen, res)
+
+                        processed2 += 1
+                        if processed2 % progress_every == 0:
+                            elapsed = time.time() - t0
+                            print(
+                                f"[{i}/{len(top_species)}] {sci}: pass2 kept={processed2:,} sampled_cells={len(reservoirs):,} elapsed={elapsed:.1f}s",
+                                flush=True,
+                            )
 
                 points = []
                 for _, (_, res) in reservoirs.items():
@@ -547,7 +648,9 @@ def main():
                 plant_obj["image"] = images_map[sci]
 
             plants_out[sci] = plant_obj
-            print(f"{sci}: total={total:,} points={len(points):,}")
+
+            dt = time.time() - t0
+            print(f"[{i}/{len(top_species)}] {sci}: total={total:,} points={len(points):,} took={dt:.1f}s", flush=True)
 
         out = {
             "meta": {
@@ -570,6 +673,8 @@ def main():
         }
 
         actual_path = write_output(args.out, out, gzip_enabled=bool(args.gzip))
+        dt_all = time.time() - t_all
+        print(f"[info] finished export -> {actual_path} in {dt_all/60.0:.1f} min", flush=True)
         return 0
 
     except Exception as e:
