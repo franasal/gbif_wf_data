@@ -11,21 +11,26 @@ from typing import Dict, List, Optional, Tuple
 
 _BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
 
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
 
 def connect(db_path: str) -> sqlite3.Connection:
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     return con
 
+
 def list_tables(con: sqlite3.Connection) -> List[str]:
     rows = con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     return [r["name"] for r in rows]
 
+
 def table_columns(con: sqlite3.Connection, table: str) -> List[str]:
     rows = con.execute(f"PRAGMA table_info({table})").fetchall()
     return [r["name"] for r in rows]
+
 
 def pick_occurrence_table(con: sqlite3.Connection) -> str:
     preferred = ["occ", "occurrence", "occurrences", "gbif_occurrence", "gbif_occurrences"]
@@ -55,6 +60,7 @@ def pick_occurrence_table(con: sqlite3.Connection) -> str:
         raise RuntimeError(f"Could not identify occurrence table. Tables: {tables}")
     return best
 
+
 def resolve_col(cols: List[str], options: List[str], required: bool = True) -> Optional[str]:
     s = set(cols)
     for o in options:
@@ -64,6 +70,7 @@ def resolve_col(cols: List[str], options: List[str], required: bool = True) -> O
         raise RuntimeError(f"Missing required column. Tried {options}. Available: {cols}")
     return None
 
+
 def load_name_map(path: Optional[str]) -> Dict[str, str]:
     if not path:
         return {}
@@ -72,6 +79,7 @@ def load_name_map(path: Optional[str]) -> Dict[str, str]:
     if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
         return data
     raise RuntimeError("names JSON must be a dict: { 'Scientific name': 'German name', ... }")
+
 
 def load_images_index(path: Optional[str]) -> Dict[str, dict]:
     if not path:
@@ -91,6 +99,7 @@ def load_images_index(path: Optional[str]) -> Dict[str, dict]:
         return data
     print(f"[warn] images-index unexpected JSON type, skipping: {path}")
     return {}
+
 
 def geohash_encode(lat: float, lon: float, precision: int = 5) -> str:
     lat_interval = [-90.0, 90.0]
@@ -127,6 +136,7 @@ def geohash_encode(lat: float, lon: float, precision: int = 5) -> str:
 
     return "".join(geohash)
 
+
 def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     if gzip_enabled or path.endswith(".gz"):
@@ -141,6 +151,7 @@ def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
         print(f"\nWrote: {path}")
         return path
+
 
 def main():
     ap = argparse.ArgumentParser(description="Export sparse occurrences JSON: newest N per cell, hotspot-capped.")
@@ -204,17 +215,16 @@ def main():
         # If names-json is provided, treat it as the authoritative whitelist.
         # Otherwise fall back to “top N by counts”.
         true_totals: Dict[str, int] = {}
-        
+
         if name_map:
-            # Keep stable order (JSON dict order) and cap by --top-n (so 250 won’t exceed 217)
             top_species = list(name_map.keys())[:max(1, int(args.top_n))]
-        
-            # Compute totals only for the whitelisted species (under the same filters)
+
+            # Create temp table once (used by stream query too)
             con.execute("DROP TABLE IF EXISTS _wanted_species;")
             con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
             con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
             con.commit()
-        
+
             q_totals = f"""
               SELECT o.{col_sci} AS sci, COUNT(1) AS n
               FROM {table} o
@@ -224,7 +234,7 @@ def main():
             """
             rows = con.execute(q_totals, params).fetchall()
             true_totals = {r["sci"]: int(r["n"]) for r in rows if r["sci"]}
-        
+
         else:
             q_top = f"""
               SELECT {col_sci} AS sci, COUNT(1) AS n
@@ -237,10 +247,35 @@ def main():
             top_rows = con.execute(q_top, params + [args.top_n]).fetchall()
             top_species = [r["sci"] for r in top_rows if r["sci"]]
             true_totals = {r["sci"]: int(r["n"]) for r in top_rows if r["sci"]}
-        
+
+            # Create temp table for stream query
+            con.execute("DROP TABLE IF EXISTS _wanted_species;")
+            con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
+            con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
+            con.commit()
+
         if not top_species:
             raise RuntimeError("No species matched filters.")
 
+        # TaxonKey dict (best effort, always defined)
+        taxon_by_species: Dict[str, Optional[int]] = {s: None for s in top_species}
+        if col_taxon:
+            for sci in top_species:
+                row = con.execute(
+                    f"""
+                    SELECT o.{col_taxon} AS tk
+                    FROM {table} o
+                    JOIN _wanted_species w ON w.sci = o.{col_sci}
+                    {where_sql} AND o.{col_sci}=? AND o.{col_taxon} IS NOT NULL
+                    LIMIT 1
+                    """,
+                    params + [sci],
+                ).fetchone()
+                if row and row["tk"] is not None:
+                    try:
+                        taxon_by_species[sci] = int(row["tk"])
+                    except Exception:
+                        taxon_by_species[sci] = None
 
         # 2) Prepare output containers
         keep_per_cell = max(1, int(args.keep_per_cell))
@@ -250,9 +285,8 @@ def main():
         plants_out: Dict[str, dict] = {}
         per_cell_counts: Dict[Tuple[str, str], int] = {}  # (sci, cell) -> kept
 
-        # Mutable counters for “sampled stats”
         sampled_year_counts: Dict[str, Dict[str, int]] = {s: {} for s in top_species}
-        sampled_month_counts: Dict[str, List[int]] = {s: [0]*12 for s in top_species}
+        sampled_month_counts: Dict[str, List[int]] = {s: [0] * 12 for s in top_species}
         bbox_map: Dict[str, List[Optional[float]]] = {s: [None, None, None, None] for s in top_species}
         last_obs_map: Dict[str, Optional[Tuple[int, int]]] = {s: None for s in top_species}
 
@@ -260,18 +294,8 @@ def main():
         done_species = set()
 
         # 3) Stream newest -> oldest once, keep newest per cell per plant
-        # Use year/month ordering (fast, indexed). If year/month missing, this will be weak.
         year_expr = col_year if col_year else "0"
         month_expr = col_month if col_month else "0"
-
-        # Temp table for filtering is already created above if names-json is provided.
-        # If we’re in fallback mode (no names-json), create it here.
-        if not name_map:
-            con.execute("DROP TABLE IF EXISTS _wanted_species;")
-            con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
-            con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
-            con.commit()
-
 
         q_stream = f"""
           SELECT
@@ -332,20 +356,16 @@ def main():
                 done_species.add(sci)
                 continue
 
-            # Keep this point (newest-first due to ordering)
             pts.append([latf, lonf, yi, mi])
             per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
 
-            # sampled year_counts
             if yi is not None:
                 ys = str(yi)
                 sampled_year_counts[sci][ys] = sampled_year_counts[sci].get(ys, 0) + 1
 
-            # sampled month_counts
             if mi is not None:
                 sampled_month_counts[sci][mi - 1] += 1
 
-            # bbox
             bb = bbox_map[sci]
             if bb[0] is None:
                 bbox_map[sci] = [latf, latf, lonf, lonf]
@@ -355,23 +375,18 @@ def main():
                 bb[2] = min(bb[2], lonf)
                 bb[3] = max(bb[3], lonf)
 
-            # last_obs: first kept point is newest (because stream is newest-first)
             if last_obs_map[sci] is None and yi is not None:
                 last_obs_map[sci] = (yi, mi or None)
 
-            # if reached cap, mark done
             if len(pts) >= max_points:
                 done_species.add(sci)
 
-            # global early stop if all plants done
             if len(done_species) == len(top_species):
                 break
 
         # 4) Build plant objects
         for sci in top_species:
             pts = kept_points[sci]
-
-            # year_counts must be object/dict (as your contract shows)
             yc = sampled_year_counts[sci]
 
             lo = last_obs_map[sci]
@@ -383,13 +398,13 @@ def main():
             obj = {
                 "de": name_map.get(sci, ""),
                 "taxonKey": taxon_by_species.get(sci),
-                "total": int(true_totals.get(sci, 0)),  # TRUE total under filters
-                "year_counts": yc,                      # sampled year counts (consistent with kept points)
+                "total": int(true_totals.get(sci, 0)),
+                "year_counts": yc,
                 "month_counts_all": sampled_month_counts[sci],
                 "last_obs": last_obs_obj,
                 "bbox": bbox_map[sci] if bbox_map[sci][0] is not None else None,
-                "points": pts,                          # newest-first
-                "sampled_total": len(pts)               # extra, harmless
+                "points": pts,
+                "sampled_total": len(pts),
             }
 
             if sci in images_map:
@@ -399,10 +414,7 @@ def main():
             print(f"{sci}: true_total={obj['total']:,} sampled_points={len(pts):,}")
 
         out = {
-            "region": {
-                "name": args.region_name,
-                "center": {"lat": args.region_lat, "lon": args.region_lon}
-            },
+            "region": {"name": args.region_name, "center": {"lat": args.region_lat, "lon": args.region_lon}},
             "plants": plants_out,
             "meta": {
                 "generated_at": utc_now_iso(),
@@ -414,8 +426,8 @@ def main():
                 "cell_precision": prec,
                 "keep_per_cell": keep_per_cell,
                 "max_points_per_plant": max_points,
-                "scanned_rows": scanned
-            }
+                "scanned_rows": scanned,
+            },
         }
 
         write_output(args.out, out, gzip_enabled=bool(args.gzip))
@@ -426,6 +438,7 @@ def main():
         if args.debug:
             traceback.print_exc()
         return 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
