@@ -99,5 +99,7 @@ jobs:
         run: |
           python -u tools/publish_release_asset.py \
             --tag latest \
-            --name latest \
-            --file data/occurrences_compact.json.gz
+            --title "Latest GBIF export" \
+            --notes "Auto-generated data export. Assets: occurrences_compact.json.gz (+ optional stats/thumbs)." \
+            --dataset data/occurrences_compact.json.gz \
+            --stats data/stats_summary.json
