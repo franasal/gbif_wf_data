@@ -5,40 +5,27 @@ import json
 import os
 import sqlite3
 import sys
-import time
 import traceback
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
-import heapq
 
 _BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
-
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-
 def connect(db_path: str) -> sqlite3.Connection:
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
-    try:
-        con.execute("PRAGMA temp_store=MEMORY;")
-        con.execute("PRAGMA cache_size=-200000;")      # ~200MB
-        con.execute("PRAGMA mmap_size=268435456;")     # 256MB
-    except Exception:
-        pass
     return con
-
 
 def list_tables(con: sqlite3.Connection) -> List[str]:
     rows = con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     return [r["name"] for r in rows]
 
-
 def table_columns(con: sqlite3.Connection, table: str) -> List[str]:
     rows = con.execute(f"PRAGMA table_info({table})").fetchall()
     return [r["name"] for r in rows]
-
 
 def pick_occurrence_table(con: sqlite3.Connection) -> str:
     preferred = ["occ", "occurrence", "occurrences", "gbif_occurrence", "gbif_occurrences"]
@@ -46,8 +33,27 @@ def pick_occurrence_table(con: sqlite3.Connection) -> str:
     for t in preferred:
         if t in tables:
             return t
-    raise RuntimeError(f"Could not identify occurrence table. Tables: {tables}")
 
+    best = None
+    best_score = -1
+    for t in tables:
+        cols = set(table_columns(con, t))
+        score = 0
+        if any(c in cols for c in ("decimalLatitude", "lat", "latitude")):
+            score += 2
+        if any(c in cols for c in ("decimalLongitude", "lon", "longitude")):
+            score += 2
+        if any(c in cols for c in ("scientificName", "species", "speciesName", "taxon_name")):
+            score += 2
+        if any(c in cols for c in ("year", "eventDate", "event_date")):
+            score += 1
+        if score > best_score:
+            best_score = score
+            best = t
+
+    if not best or best_score < 4:
+        raise RuntimeError(f"Could not identify occurrence table. Tables: {tables}")
+    return best
 
 def resolve_col(cols: List[str], options: List[str], required: bool = True) -> Optional[str]:
     s = set(cols)
@@ -58,7 +64,6 @@ def resolve_col(cols: List[str], options: List[str], required: bool = True) -> O
         raise RuntimeError(f"Missing required column. Tried {options}. Available: {cols}")
     return None
 
-
 def load_name_map(path: Optional[str]) -> Dict[str, str]:
     if not path:
         return {}
@@ -68,6 +73,24 @@ def load_name_map(path: Optional[str]) -> Dict[str, str]:
         return data
     raise RuntimeError("names JSON must be a dict: { 'Scientific name': 'German name', ... }")
 
+def load_images_index(path: Optional[str]) -> Dict[str, dict]:
+    if not path:
+        return {}
+    if not os.path.exists(path):
+        print(f"[warn] images-index not found, skipping: {path}")
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"[warn] images-index could not be read, skipping: {path} ({e})")
+        return {}
+    if isinstance(data, dict) and "plants" in data and isinstance(data["plants"], dict):
+        return data["plants"]
+    if isinstance(data, dict):
+        return data
+    print(f"[warn] images-index unexpected JSON type, skipping: {path}")
+    return {}
 
 def geohash_encode(lat: float, lon: float, precision: int = 5) -> str:
     lat_interval = [-90.0, 90.0]
@@ -104,19 +127,6 @@ def geohash_encode(lat: float, lon: float, precision: int = 5) -> str:
 
     return "".join(geohash)
 
-
-def ym_to_key(y: Optional[int], m: Optional[int], d: Optional[int]) -> int:
-    # Comparable recency key, higher = newer
-    yy = int(y) if y is not None else 0
-    mm = int(m) if m is not None else 0
-    dd = int(d) if d is not None else 0
-    if mm < 0 or mm > 12:
-        mm = 0
-    if dd < 0 or dd > 31:
-        dd = 0
-    return yy * 10000 + mm * 100 + dd
-
-
 def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     if gzip_enabled or path.endswith(".gz"):
@@ -124,66 +134,56 @@ def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
             path = path + ".gz"
         with gzip.open(path, "wt", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-        print(f"\nWrote (gzip): {path}", flush=True)
+        print(f"\nWrote (gzip): {path}")
         return path
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"\nWrote: {path}", flush=True)
-    return path
-
+    else:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+        print(f"\nWrote: {path}")
+        return path
 
 def main():
-    ap = argparse.ArgumentParser(
-        description="Export coverage-first occurrences_compact.json (cell-centric, newest per cell)."
-    )
+    ap = argparse.ArgumentParser(description="Export sparse occurrences JSON: newest N per cell, hotspot-capped.")
     ap.add_argument("--db", required=True)
     ap.add_argument("--out", required=True)
-
-    ap.add_argument("--country", default="DE", help="Country code filter (default: DE). Empty disables.")
+    ap.add_argument("--country", default="DE")
     ap.add_argument("--year-from", type=int, default=None)
     ap.add_argument("--year-to", type=int, default=None)
+    ap.add_argument("--top-n", type=int, default=250)
 
-    ap.add_argument("--top-n", type=int, default=250, help="Pick top N plants by raw total before sparsifying.")
-    ap.add_argument("--grid-geohash", type=int, default=4, help="Geohash precision (4 ~20km, 5 ~5km).")
-    ap.add_argument("--cell-top-plants", type=int, default=220, help="Keep top plants per cell by count.")
-    ap.add_argument("--newest-per-plant-per-cell", type=int, default=5, help="Keep newest N points per plant per cell.")
-
-    ap.add_argument("--max-points-per-plant", type=int, default=1200, help="Final cap after merging cells (0 disables).")
-    ap.add_argument("--chunk-size", type=int, default=50000)
-    ap.add_argument("--progress-every", type=int, default=250000)
+    ap.add_argument("--cell-precision", type=int, default=5, help="Geohash precision (default 5)")
+    ap.add_argument("--keep-per-cell", type=int, default=6, help="Newest points per plant per cell (default 6)")
+    ap.add_argument("--max-points-per-plant", type=int, default=700, help="Global cap per plant (default 700)")
 
     ap.add_argument("--region-name", default="Germany")
     ap.add_argument("--region-lat", type=float, default=51.0)
     ap.add_argument("--region-lon", type=float, default=10.0)
 
-    ap.add_argument("--names-json", default=None, help="Scientific->German name mapping and implicit plant list.")
+    ap.add_argument("--names-json", default=None)
+    ap.add_argument("--images-index", default=None)
     ap.add_argument("--gzip", action="store_true")
     ap.add_argument("--debug", action="store_true")
+    ap.add_argument("--progress-every", type=int, default=0, help="Print progress every N rows scanned")
+
     args = ap.parse_args()
 
     try:
-        t_all = time.time()
-
-        name_map = load_name_map(args.names_json)
-        if not name_map:
-            raise RuntimeError("names-json is required here (it defines the plant list).")
-
         con = connect(args.db)
         table = pick_occurrence_table(con)
         cols = table_columns(con, table)
 
-        # prefer species over scientificName (less author noise)
         col_sci = resolve_col(cols, ["species", "scientificName", "speciesName", "taxon_name"])
         col_taxon = resolve_col(cols, ["taxonKey", "taxon_key"], required=False)
-
         col_lat = resolve_col(cols, ["lat", "decimalLatitude", "latitude"])
         col_lon = resolve_col(cols, ["lon", "decimalLongitude", "longitude"])
         col_year = resolve_col(cols, ["year"], required=False)
         col_month = resolve_col(cols, ["month"], required=False)
-        col_day = resolve_col(cols, ["day"], required=False)
         col_country = resolve_col(cols, ["countryCode", "country_code", "country"], required=False)
 
-        # 1) Base WHERE
+        name_map = load_name_map(args.names_json)
+        images_map = load_images_index(args.images_index)
+
+        # Base WHERE (true totals + scan)
         where = [f"{col_lat} IS NOT NULL", f"{col_lon} IS NOT NULL"]
         params: List[object] = []
 
@@ -200,252 +200,222 @@ def main():
 
         where_sql = "WHERE " + " AND ".join(where)
 
-        # 2) pick top_n plants by raw totals, but only from your maintained list
-        #    (so the repo controls what exists)
-        plant_list = sorted(name_map.keys())
-        # SQLite has a param limit; chunk plant_list into ORs if huge.
-        # For your size (~400) this is fine:
-        placeholders = ",".join(["?"] * len(plant_list))
-        where_top = where_sql + f" AND {col_sci} IN ({placeholders})"
-
+        # 1) Choose top species by TRUE totals (under filters)
         q_top = f"""
-            SELECT {col_sci} AS sci, COUNT(1) AS n
-            FROM {table}
-            {where_top}
-            GROUP BY {col_sci}
-            ORDER BY n DESC
-            LIMIT ?
+          SELECT {col_sci} AS sci, COUNT(1) AS n
+          FROM {table}
+          {where_sql}
+          GROUP BY {col_sci}
+          ORDER BY n DESC
+          LIMIT ?
         """
-        top_rows = con.execute(q_top, params + plant_list + [args.top_n]).fetchall()
+        top_rows = con.execute(q_top, params + [args.top_n]).fetchall()
         top_species = [r["sci"] for r in top_rows if r["sci"]]
-        raw_totals = {r["sci"]: int(r["n"]) for r in top_rows if r["sci"]}
 
         if not top_species:
-            raise RuntimeError("No plants matched filters + names-json list. Check DB content / filters.")
+            raise RuntimeError("No species matched filters.")
 
-        top_set = set(top_species)
-        print(f"[info] plants: {len(top_species)} grid_geohash={args.grid_geohash}", flush=True)
+        # True totals dict
+        true_totals: Dict[str, int] = {r["sci"]: int(r["n"]) for r in top_rows if r["sci"]}
 
-        # 3) One streaming pass across ALL rows (filtered) and bucket into grid cells
-        # Structures:
-        # cell_counts[cell][plant] = count
-        # cell_heaps[cell][plant] = min-heap of (timekey, point)
-        cell_counts: Dict[str, Dict[str, int]] = {}
-        cell_heaps: Dict[str, Dict[str, List[Tuple[int, list]]]] = {}
-
-        # also track plant->taxonKey first seen
-        taxon_map: Dict[str, Optional[int]] = {}
-
-        select_cols = [f"{col_sci} AS sci", f"{col_lat} AS lat", f"{col_lon} AS lon"]
+        # TaxonKey dict (best effort)
+        taxon_by_species: Dict[str, Optional[int]] = {}
         if col_taxon:
-            select_cols.append(f"{col_taxon} AS taxonKey")
-        else:
-            select_cols.append("NULL AS taxonKey")
-        select_cols.append((f"{col_year} AS y") if col_year else "NULL AS y")
-        select_cols.append((f"{col_month} AS m") if col_month else "NULL AS m")
-        select_cols.append((f"{col_day} AS d") if col_day else "NULL AS d")
+            # Pull one taxonKey per species (fast enough for 250)
+            for sci in top_species:
+                row = con.execute(
+                    f"SELECT {col_taxon} AS tk FROM {table} {where_sql} AND {col_sci}=? AND {col_taxon} IS NOT NULL LIMIT 1",
+                    params + [sci],
+                ).fetchone()
+                if row and row["tk"] is not None:
+                    try:
+                        taxon_by_species[sci] = int(row["tk"])
+                    except Exception:
+                        taxon_by_species[sci] = None
+                else:
+                    taxon_by_species[sci] = None
 
-        q_stream = f"SELECT {', '.join(select_cols)} FROM {table} {where_sql}"
+        # 2) Prepare output containers
+        keep_per_cell = max(1, int(args.keep_per_cell))
+        max_points = max(1, int(args.max_points_per_plant))
+        prec = max(1, int(args.cell_precision))
+
+        plants_out: Dict[str, dict] = {}
+        per_cell_counts: Dict[Tuple[str, str], int] = {}  # (sci, cell) -> kept
+
+        # Mutable counters for “sampled stats”
+        sampled_year_counts: Dict[str, Dict[str, int]] = {s: {} for s in top_species}
+        sampled_month_counts: Dict[str, List[int]] = {s: [0]*12 for s in top_species}
+        bbox_map: Dict[str, List[Optional[float]]] = {s: [None, None, None, None] for s in top_species}
+        last_obs_map: Dict[str, Optional[Tuple[int, int]]] = {s: None for s in top_species}
+
+        kept_points: Dict[str, List[list]] = {s: [] for s in top_species}
+        done_species = set()
+
+        # 3) Stream newest -> oldest once, keep newest per cell per plant
+        # Use year/month ordering (fast, indexed). If year/month missing, this will be weak.
+        year_expr = col_year if col_year else "0"
+        month_expr = col_month if col_month else "0"
+
+        # Temp table for filtering (avoids massive IN clause)
+        con.execute("DROP TABLE IF EXISTS _wanted_species;")
+        con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
+        con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
+        con.commit()
+
+        q_stream = f"""
+          SELECT
+            o.{col_sci} AS sci,
+            o.{col_lat} AS lat,
+            o.{col_lon} AS lon,
+            o.{year_expr} AS y,
+            o.{month_expr} AS m
+          FROM {table} o
+          JOIN _wanted_species w ON w.sci = o.{col_sci}
+          {where_sql}
+          ORDER BY o.{year_expr} DESC, o.{month_expr} DESC
+        """
+
         cur = con.execute(q_stream, params)
+        scanned = 0
 
-        processed = 0
-        newest_n = max(1, int(args.newest_per_plant_per_cell))
+        for r in cur:
+            scanned += 1
+            if args.progress_every and scanned % int(args.progress_every) == 0:
+                print(f"[scan] rows={scanned:,} done_plants={len(done_species)}/{len(top_species)}")
 
-        while True:
-            chunk = cur.fetchmany(max(1000, int(args.chunk_size)))
-            if not chunk:
+            sci = r["sci"]
+            if sci in done_species:
+                continue
+
+            lat = r["lat"]
+            lon = r["lon"]
+            if lat is None or lon is None:
+                continue
+            try:
+                latf = float(lat)
+                lonf = float(lon)
+            except Exception:
+                continue
+
+            y = r["y"]
+            m = r["m"]
+            try:
+                yi = int(y) if y is not None else None
+            except Exception:
+                yi = None
+            try:
+                mi = int(m) if m is not None else None
+            except Exception:
+                mi = None
+            if mi is not None and not (1 <= mi <= 12):
+                mi = None
+
+            cell = geohash_encode(latf, lonf, precision=prec)
+            key = (sci, cell)
+
+            if per_cell_counts.get(key, 0) >= keep_per_cell:
+                continue
+
+            pts = kept_points[sci]
+            if len(pts) >= max_points:
+                done_species.add(sci)
+                continue
+
+            # Keep this point (newest-first due to ordering)
+            pts.append([latf, lonf, yi, mi])
+            per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
+
+            # sampled year_counts
+            if yi is not None:
+                ys = str(yi)
+                sampled_year_counts[sci][ys] = sampled_year_counts[sci].get(ys, 0) + 1
+
+            # sampled month_counts
+            if mi is not None:
+                sampled_month_counts[sci][mi - 1] += 1
+
+            # bbox
+            bb = bbox_map[sci]
+            if bb[0] is None:
+                bbox_map[sci] = [latf, latf, lonf, lonf]
+            else:
+                bb[0] = min(bb[0], latf)
+                bb[1] = max(bb[1], latf)
+                bb[2] = min(bb[2], lonf)
+                bb[3] = max(bb[3], lonf)
+
+            # last_obs: first kept point is newest (because stream is newest-first)
+            if last_obs_map[sci] is None and yi is not None:
+                last_obs_map[sci] = (yi, mi or None)
+
+            # if reached cap, mark done
+            if len(pts) >= max_points:
+                done_species.add(sci)
+
+            # global early stop if all plants done
+            if len(done_species) == len(top_species):
                 break
 
-            for r in chunk:
-                sci = r["sci"]
-                if sci not in top_set:
-                    continue
-
-                try:
-                    lat = float(r["lat"])
-                    lon = float(r["lon"])
-                except Exception:
-                    continue
-
-                y = r["y"]
-                m = r["m"]
-                d = r["d"]
-                try:
-                    yi = int(y) if y is not None else None
-                except Exception:
-                    yi = None
-                try:
-                    mi = int(m) if m is not None else None
-                except Exception:
-                    mi = None
-                try:
-                    di = int(d) if d is not None else None
-                except Exception:
-                    di = None
-
-                tkey = ym_to_key(yi, mi, di)
-                cell = geohash_encode(lat, lon, precision=int(args.grid_geohash))
-                point = [lat, lon, yi, mi]
-
-                # count
-                byplant = cell_counts.get(cell)
-                if byplant is None:
-                    byplant = {}
-                    cell_counts[cell] = byplant
-                byplant[sci] = byplant.get(sci, 0) + 1
-
-                # heap newest per plant per cell
-                heaps_byplant = cell_heaps.get(cell)
-                if heaps_byplant is None:
-                    heaps_byplant = {}
-                    cell_heaps[cell] = heaps_byplant
-                h = heaps_byplant.get(sci)
-                if h is None:
-                    h = []
-                    heaps_byplant[sci] = h
-
-                if len(h) < newest_n:
-                    heapq.heappush(h, (tkey, point))
-                else:
-                    # min-heap keeps the N newest (largest keys)
-                    if tkey > h[0][0]:
-                        heapq.heapreplace(h, (tkey, point))
-
-                # taxonKey
-                if sci not in taxon_map:
-                    tk = r["taxonKey"]
-                    if tk is None:
-                        taxon_map[sci] = None
-                    else:
-                        try:
-                            taxon_map[sci] = int(tk)
-                        except Exception:
-                            taxon_map[sci] = None
-
-                processed += 1
-                if processed % max(50000, int(args.progress_every)) == 0:
-                    print(
-                        f"[info] streamed={processed:,} cells={len(cell_counts):,}",
-                        flush=True,
-                    )
-
-        print(f"[info] finished stream. cells={len(cell_counts):,}", flush=True)
-
-        # 4) For each cell, keep only the top plants, then collect their newest points.
-        cell_top = max(1, int(args.cell_top_plants))
-
-        plants_points: Dict[str, List[Tuple[int, list]]] = {}
-        plants_cell_presence: Dict[str, int] = {}
-        total_cells_with_anything = len(cell_counts)
-
-        for cell, counts in cell_counts.items():
-            # pick top plants by raw count in this cell
-            top_plants = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:cell_top]
-            if not top_plants:
-                continue
-
-            heaps_byplant = cell_heaps.get(cell, {})
-            for sci, _cnt in top_plants:
-                h = heaps_byplant.get(sci)
-                if not h:
-                    continue
-
-                plants_cell_presence[sci] = plants_cell_presence.get(sci, 0) + 1
-
-                # heap has newest N but unsorted; keep timekey for later sorting
-                out = plants_points.get(sci)
-                if out is None:
-                    out = []
-                    plants_points[sci] = out
-                out.extend(h)
-
-        # 5) Build final per-plant objects, sort newest-first, optionally cap max points.
-        max_points = int(args.max_points_per_plant)
-        plants_out: Dict[str, dict] = {}
-
-        total_points_kept = 0
-
+        # 4) Build plant objects
         for sci in top_species:
-            items = plants_points.get(sci, [])
-            if not items:
-                continue
+            pts = kept_points[sci]
 
-            # sort newest-first
-            items.sort(key=lambda x: x[0], reverse=True)
-            if max_points and len(items) > max_points:
-                items = items[:max_points]
+            # year_counts must be object/dict (as your contract shows)
+            yc = sampled_year_counts[sci]
 
-            points = [pt for (_tk, pt) in items]
-            total_points_kept += len(points)
+            lo = last_obs_map[sci]
+            last_obs_obj = None
+            if lo is not None:
+                yy, mm = lo
+                last_obs_obj = {"year": int(yy), "month": (int(mm) if mm else None)}
 
-            # year_counts + month_counts derived from kept points
-            year_counts: Dict[str, int] = {}
-            month_counts_all = [0] * 12
-            last_obs = None
-
-            for lat, lon, y, m in points:
-                if y is not None:
-                    ys = str(int(y))
-                    year_counts[ys] = year_counts.get(ys, 0) + 1
-                if m is not None:
-                    try:
-                        mi = int(m)
-                    except Exception:
-                        mi = None
-                    if mi is not None and 1 <= mi <= 12:
-                        month_counts_all[mi - 1] += 1
-
-                # compute last_obs from first (newest) point by ordering
-            y0 = points[0][2]
-            m0 = points[0][3]
-            if y0 is not None:
-                last_obs = {"year": int(y0), "month": (int(m0) if m0 is not None else None)}
-
-            plants_out[sci] = {
+            obj = {
                 "de": name_map.get(sci, ""),
-                "taxonKey": taxon_map.get(sci),
-                # raw total from DB for context + sampling total for UI ranking/local counts
-                "total_raw": int(raw_totals.get(sci, 0)),
-                "total": int(len(points)),
-                "year_counts": year_counts,
-                "month_counts_all": month_counts_all,
-                "last_obs": last_obs,
-                "coverage_cells": int(plants_cell_presence.get(sci, 0)),
-                "coverage_cells_total": int(total_cells_with_anything),
-                "points": points,
+                "taxonKey": taxon_by_species.get(sci),
+                "total": int(true_totals.get(sci, 0)),  # TRUE total under filters
+                "year_counts": yc,                      # sampled year counts (consistent with kept points)
+                "month_counts_all": sampled_month_counts[sci],
+                "last_obs": last_obs_obj,
+                "bbox": bbox_map[sci] if bbox_map[sci][0] is not None else None,
+                "points": pts,                          # newest-first
+                "sampled_total": len(pts)               # extra, harmless
             }
 
+            if sci in images_map:
+                obj["image"] = images_map[sci]
+
+            plants_out[sci] = obj
+            print(f"{sci}: true_total={obj['total']:,} sampled_points={len(pts):,}")
+
         out = {
-            "region": {"name": args.region_name, "center": {"lat": args.region_lat, "lon": args.region_lon}},
+            "region": {
+                "name": args.region_name,
+                "center": {"lat": args.region_lat, "lon": args.region_lon}
+            },
             "plants": plants_out,
             "meta": {
                 "generated_at": utc_now_iso(),
                 "source": os.path.basename(args.db),
-                "table": table,
                 "country": args.country or None,
                 "year_from": args.year_from,
                 "year_to": args.year_to,
                 "top_n": args.top_n,
-                "grid_geohash": args.grid_geohash,
-                "cell_top_plants": args.cell_top_plants,
-                "newest_per_plant_per_cell": args.newest_per_plant_per_cell,
-                "max_points_per_plant": args.max_points_per_plant,
-                "plants_out": len(plants_out),
-                "points_out": total_points_kept,
-            },
+                "cell_precision": prec,
+                "keep_per_cell": keep_per_cell,
+                "max_points_per_plant": max_points,
+                "scanned_rows": scanned
+            }
         }
 
-        actual = write_output(args.out, out, gzip_enabled=bool(args.gzip))
-        dt = time.time() - t_all
-        print(f"[info] export done -> {actual} in {dt/60.0:.1f} min", flush=True)
+        write_output(args.out, out, gzip_enabled=bool(args.gzip))
         return 0
 
     except Exception as e:
         print(f"\n[error] export failed: {e}", file=sys.stderr)
-        if getattr(args, "debug", False):
+        if args.debug:
             traceback.print_exc()
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
