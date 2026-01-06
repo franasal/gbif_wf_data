@@ -200,40 +200,47 @@ def main():
 
         where_sql = "WHERE " + " AND ".join(where)
 
-        # 1) Choose top species by TRUE totals (under filters)
-        q_top = f"""
-          SELECT {col_sci} AS sci, COUNT(1) AS n
-          FROM {table}
-          {where_sql}
-          GROUP BY {col_sci}
-          ORDER BY n DESC
-          LIMIT ?
-        """
-        top_rows = con.execute(q_top, params + [args.top_n]).fetchall()
-        top_species = [r["sci"] for r in top_rows if r["sci"]]
-
+        # 1) Choose plants:
+        # If names-json is provided, treat it as the authoritative whitelist.
+        # Otherwise fall back to “top N by counts”.
+        true_totals: Dict[str, int] = {}
+        
+        if name_map:
+            # Keep stable order (JSON dict order) and cap by --top-n (so 250 won’t exceed 217)
+            top_species = list(name_map.keys())[:max(1, int(args.top_n))]
+        
+            # Compute totals only for the whitelisted species (under the same filters)
+            con.execute("DROP TABLE IF EXISTS _wanted_species;")
+            con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
+            con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
+            con.commit()
+        
+            q_totals = f"""
+              SELECT o.{col_sci} AS sci, COUNT(1) AS n
+              FROM {table} o
+              JOIN _wanted_species w ON w.sci = o.{col_sci}
+              {where_sql}
+              GROUP BY o.{col_sci}
+            """
+            rows = con.execute(q_totals, params).fetchall()
+            true_totals = {r["sci"]: int(r["n"]) for r in rows if r["sci"]}
+        
+        else:
+            q_top = f"""
+              SELECT {col_sci} AS sci, COUNT(1) AS n
+              FROM {table}
+              {where_sql}
+              GROUP BY {col_sci}
+              ORDER BY n DESC
+              LIMIT ?
+            """
+            top_rows = con.execute(q_top, params + [args.top_n]).fetchall()
+            top_species = [r["sci"] for r in top_rows if r["sci"]]
+            true_totals = {r["sci"]: int(r["n"]) for r in top_rows if r["sci"]}
+        
         if not top_species:
             raise RuntimeError("No species matched filters.")
 
-        # True totals dict
-        true_totals: Dict[str, int] = {r["sci"]: int(r["n"]) for r in top_rows if r["sci"]}
-
-        # TaxonKey dict (best effort)
-        taxon_by_species: Dict[str, Optional[int]] = {}
-        if col_taxon:
-            # Pull one taxonKey per species (fast enough for 250)
-            for sci in top_species:
-                row = con.execute(
-                    f"SELECT {col_taxon} AS tk FROM {table} {where_sql} AND {col_sci}=? AND {col_taxon} IS NOT NULL LIMIT 1",
-                    params + [sci],
-                ).fetchone()
-                if row and row["tk"] is not None:
-                    try:
-                        taxon_by_species[sci] = int(row["tk"])
-                    except Exception:
-                        taxon_by_species[sci] = None
-                else:
-                    taxon_by_species[sci] = None
 
         # 2) Prepare output containers
         keep_per_cell = max(1, int(args.keep_per_cell))
@@ -257,11 +264,14 @@ def main():
         year_expr = col_year if col_year else "0"
         month_expr = col_month if col_month else "0"
 
-        # Temp table for filtering (avoids massive IN clause)
-        con.execute("DROP TABLE IF EXISTS _wanted_species;")
-        con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
-        con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
-        con.commit()
+        # Temp table for filtering is already created above if names-json is provided.
+        # If we’re in fallback mode (no names-json), create it here.
+        if not name_map:
+            con.execute("DROP TABLE IF EXISTS _wanted_species;")
+            con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
+            con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
+            con.commit()
+
 
         q_stream = f"""
           SELECT
