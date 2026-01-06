@@ -41,20 +41,28 @@ jobs:
           path: data/dwca.sqlite
           retention-days: 7
 
-      - name: Commit small state outputs (if changed)
+      - name: Commit outputs (if changed) and push
         run: |
+          set -euxo pipefail
+      
           git config user.name "gbif-bot"
           git config user.email "gbif-bot@users.noreply.github.com"
-
-          git add data/gbif_state.json data/plants_resolved.json data/taxon_cache.json || true
-
+      
+          git add data/gbif_state.json data/plants_resolved.json data/taxon_cache.json data/occurrences_compact.json.gz || true
+      
           if git diff --cached --quiet; then
-            echo "No state changes."
+            echo "No changes."
             exit 0
           fi
-
+      
           git commit -m "chore(state): daily GBIF refresh"
-          git push
+      
+          # Sync with remote to avoid "fetch first"
+          git fetch origin main
+          git rebase origin/main
+      
+          git push origin HEAD:main
+
 
   export_and_release:
     name: Export compact dataset + publish Release asset
