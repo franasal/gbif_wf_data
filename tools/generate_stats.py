@@ -13,49 +13,58 @@ def connect(db_path: str) -> sqlite3.Connection:
     return con
 
 
+def _resolve_json_path(p: Path) -> Path:
+    """
+    Accepts:
+      - occurrences_compact.json
+      - occurrences_compact.json.gz
+
+    If p doesn't exist, tries p + ".gz".
+    """
+    if p.exists():
+        return p
+    alt = Path(str(p) + ".gz")
+    if alt.exists():
+        return alt
+    raise FileNotFoundError(f"Missing occ json: {p} (also tried {alt})")
+
+
 def read_json_maybe_gz(path: Path) -> Dict[str, Any]:
-    """
-    Reads JSON from:
-      - foo.json
-      - foo.json.gz
-
-    If the given path doesn't exist, also tries path + ".gz".
-    """
-    p = path
-    if not p.exists():
-        alt = Path(str(p) + ".gz")
-        if alt.exists():
-            p = alt
-        else:
-            raise FileNotFoundError(f"Missing occ json: {path} (also tried {alt})")
-
+    p = _resolve_json_path(path)
     if p.suffix == ".gz":
         with gzip.open(p, "rt", encoding="utf-8") as f:
             return json.load(f)
-
     return json.loads(p.read_text(encoding="utf-8"))
+
+
+def safe_int(x, default=0) -> int:
+    try:
+        return int(x)
+    except Exception:
+        return default
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Generate summary stats from occurrences_compact (json or json.gz).")
     ap.add_argument("--db", required=True, help="Path to dwca.sqlite")
-    ap.add_argument("--occ-json", required=True, help="Path to occurrences_compact.json or .json.gz")
-    ap.add_argument("--out", required=True, help="Output JSON path")
+    ap.add_argument("--occ-json", required=True, help="Path to occurrences_compact.json or occurrences_compact.json.gz")
+    ap.add_argument("--out", required=True, help="Output JSON path (e.g. data/stats_summary.json)")
     ap.add_argument("--country", default="DE")
     ap.add_argument("--year-from", type=int, default=None)
     ap.add_argument("--year-to", type=int, default=None)
     args = ap.parse_args()
 
-    occ_path = Path(args.occ_json)
+    occ_path_in = Path(args.occ_json)
+    occ_path = _resolve_json_path(occ_path_in)
     data = read_json_maybe_gz(occ_path)
 
     plants = data.get("plants", {}) or {}
+    sampled_points_total = 0
 
     totals = []
-    sampled_points_total = 0
     for sci, obj in plants.items():
-        total = int(obj.get("total") or 0)
-        pts = obj.get("points") or []
+        total = safe_int(obj.get("total"), 0)
+        pts = obj.get("points") or obj.get("pointsSample") or []
         sampled_points_total += len(pts)
         totals.append((sci, total))
 
