@@ -168,6 +168,7 @@ def main() -> None:
     # DB + output
     db_path = repo / "data" / "dwca.sqlite"
     out_json = repo / "data" / "occurrences_compact.json"
+    out_json_occ = repo / "data" / "occurrences_compact.json.gz"
 
     # Scripts
     resolver = repo / "tools" / "resolve_taxa.py"
@@ -303,7 +304,7 @@ def main() -> None:
             subprocess.check_call([
                 "python", str(stats_script),
                 "--db", str(db_path),
-                "--occ-json", str(out_json),  # if you gzip, pass the unzipped path you wrote; or write unzipped too
+                "--occ-json", str(out_json_occ),  # if you gzip, pass the unzipped path you wrote; or write unzipped too
                 "--out", str(stats_out),
                 "--country", str(country),
                 "--year-from", str(int(y_from)) if y_from is not None else "",
