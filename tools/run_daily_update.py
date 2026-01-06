@@ -258,35 +258,33 @@ def main() -> None:
             raise SystemExit(f"Missing DB: {db_path} (did you run db-only job / restore artifact?)")
 
         export_args = [
-            "python", "-u", str(exporter),
+            "python", str(exporter),
             "--db", str(db_path),
             "--out", str(out_json),
             "--names-json", str(names_path),
-            "--top-n", str(int(cfg.get("top_n", 50))),
-            "--points", str(int(cfg.get("points_sample", 900))),
-            "--strata-geohash", str(int(cfg.get("strata_geohash", 5))),
-            "--min-per-cell", str(int(cfg.get("min_per_cell", 1))),
-            "--max-per-cell", str(int(cfg.get("max_per_cell", 30))),
+            "--top-n", str(int(cfg.get("top_n", 250))),
+            "--cell-precision", str(int(cfg.get("cell_precision", 5))),
+            "--keep-per-cell", str(int(cfg.get("keep_per_cell", 6))),
+            "--max-points-per-plant", str(int(cfg.get("max_points_per_plant", 700))),
         ]
-
+        
         country = cfg.get("country", "DE")
         if country:
             export_args += ["--country", str(country)]
-
+        
         y_from = cfg.get("year_from")
         y_to = cfg.get("year_to")
         if y_from is not None:
             export_args += ["--year-from", str(int(y_from))]
         if y_to is not None:
             export_args += ["--year-to", str(int(y_to))]
-
-        # Optional: attach image metadata into output JSON
+        
         if cfg.get("images_index"):
             export_args += ["--images-index", str(repo / cfg["images_index"])]
-
-        # Optional: gzip output (writes .gz or appends .gz)
+        
         if cfg.get("gzip_json", False):
             export_args += ["--gzip"]
+
 
         run(export_args)
 
@@ -298,6 +296,20 @@ def main() -> None:
             new_state["pending"]["completed_at"] = utc_now_iso()
             new_state["pending"]["status"] = "exported"
         save_json(state_path, new_state)
+
+        if cfg.get("stats_enabled", False):
+            stats_script = repo / "tools" / "generate_stats.py"
+            stats_out = repo / "data" / "stats_summary.json"
+            subprocess.check_call([
+                "python", str(stats_script),
+                "--db", str(db_path),
+                "--occ-json", str(out_json),  # if you gzip, pass the unzipped path you wrote; or write unzipped too
+                "--out", str(stats_out),
+                "--country", str(country),
+                "--year-from", str(int(y_from)) if y_from is not None else "",
+                "--year-to", str(int(y_to)) if y_to is not None else "",
+            ])
+
 
         print(f"Updated state: last_interpreted_since={new_state['last_interpreted_since']}", flush=True)
         print(f"Wrote: {out_json}", flush=True)
