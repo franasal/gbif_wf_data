@@ -6,10 +6,12 @@
   "overlap_days": 2,
 
   "top_n": 250,
-  "points_sample": 2000,
-  "strata_geohash": 5,
-  "min_per_cell": 1,
-  "max_per_cell": 30,
+
+  "grid_geohash": 4,
+  "cell_top_plants": 220,
+  "newest_per_plant_per_cell": 5,
+  "max_points_per_plant": 1200,
+
   "gzip_json": true,
   "images_index": "assets/plant_images/index.json"
 
