@@ -35,7 +35,6 @@ def save_json(path: Path, data) -> None:
 
 
 def run(cmd: list[str], env: dict | None = None) -> None:
-    # Stream output live (no "hang" due to capture_output)
     print("RUN:", " ".join(cmd), flush=True)
     subprocess.check_call(cmd, env=env)
 
@@ -69,7 +68,6 @@ def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: s
     if y_to is not None:
         preds.append({"type": "lessThanOrEquals", "key": "YEAR", "value": str(int(y_to))})
 
-    # Incremental delta
     preds.append({"type": "greaterThanOrEquals", "key": "LAST_INTERPRETED", "value": interpreted_since})
 
     return {"type": "and", "predicates": preds}
@@ -120,9 +118,6 @@ def download_zip(key: str, out_zip: Path) -> None:
 
 
 def compute_since(state: dict, cfg: dict) -> tuple[str, str]:
-    """
-    Returns (since_date_iso, last_state_value_used)
-    """
     last = state.get("last_interpreted_since") or utc_today_date()
     overlap_days = int(cfg.get("overlap_days", 2))
 
@@ -139,7 +134,7 @@ def compute_since(state: dict, cfg: dict) -> tuple[str, str]:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Daily GBIF update pipeline (supports db-only/export-only).")
     ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
-    ap.add_argument("--export-only", action="store_true", help="Run export only (requires existing data/dwca.sqlite).")
+    ap.add_argument("--export-only", action="store_true", help="Run export+stats only (requires existing data/dwca.sqlite).")
     args = ap.parse_args()
 
     if args.db_only and args.export_only:
@@ -167,13 +162,14 @@ def main() -> None:
 
     # DB + output
     db_path = repo / "data" / "dwca.sqlite"
-    out_json = repo / "data" / "occurrences_compact.json"
-    out_json_occ = repo / "data" / "occurrences_compact.json.gz"
+    out_json_plain = repo / "data" / "occurrences_compact.json"
+    out_json_gz = repo / "data" / "occurrences_compact.json.gz"
 
     # Scripts
     resolver = repo / "tools" / "resolve_taxa.py"
     loader = repo / "tools" / "dwca_sqlite.py"
     exporter = repo / "tools" / "export_occurrences_compact.py"
+    stats_script = repo / "tools" / "generate_stats.py"
 
     if not names_path.exists():
         raise SystemExit(f"Missing: {names_path}")
@@ -184,9 +180,15 @@ def main() -> None:
     cfg = load_json(cfg_path, {})
     state = load_json(state_path, {"last_interpreted_since": utc_today_date()})
 
+    country = cfg.get("country", "DE")
+    y_from = cfg.get("year_from")
+    y_to = cfg.get("year_to")
+    gzip_json = bool(cfg.get("gzip_json", False))
+
+    export_out = out_json_gz if gzip_json else out_json_plain
+
     # ---------- DB STEP ----------
     if mode in ("all", "db-only"):
-        # 0) Resolve taxa
         run([
             "python", "-u", str(resolver),
             "--names", str(names_path),
@@ -198,12 +200,10 @@ def main() -> None:
         if not isinstance(resolved_plants, list) or not resolved_plants:
             raise SystemExit(f"{resolved_path} is empty or invalid.")
 
-        # 1) Compute delta start with overlap
         since, last_used = compute_since(state, cfg)
         overlap_days = int(cfg.get("overlap_days", 2))
         print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days}, last_state={last_used})", flush=True)
 
-        # 2) Request GBIF download
         user = os.environ["GBIF_USER"]
         pwd = os.environ["GBIF_PWD"]
         email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
@@ -212,17 +212,11 @@ def main() -> None:
         key = request_download(user, pwd, email, predicate)
         print(f"Requested download: {key}", flush=True)
 
-        # Save pending info immediately (useful if export job fails later)
-        state["pending"] = {
-            "download_key": key,
-            "since": since,
-            "requested_at": utc_now_iso(),
-        }
+        state["pending"] = {"download_key": key, "since": since, "requested_at": utc_now_iso()}
         save_json(state_path, state)
 
         poll_until_succeeded(key)
 
-        # 3) Download + unzip
         tmp = repo / ".tmp_gbif" / key
         tmp.mkdir(parents=True, exist_ok=True)
         zip_path = tmp / f"{key}.zip"
@@ -232,11 +226,9 @@ def main() -> None:
         else:
             print(f"ZIP already present: {zip_path}", flush=True)
 
-        # Extract (idempotent-ish)
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(tmp)
 
-        # 4) Load into SQLite (table: occ). Use --no-raw to avoid DB bloat.
         run([
             "python", "-u", str(loader), "load",
             "--dwca", str(tmp),
@@ -251,69 +243,76 @@ def main() -> None:
             return
 
     # ---------- EXPORT STEP ----------
-    # Export step needs:
-    # - data/dwca.sqlite present
-    # - data/names_de.json present
     if mode in ("all", "export-only"):
         if not db_path.exists():
-            raise SystemExit(f"Missing DB: {db_path} (did you run db-only job / restore artifact?)")
+            raise SystemExit(f"Missing DB: {db_path} (did you run db-only job / restore cache/artifact?)")
 
         export_args = [
-            "python", str(exporter),
+            "python", "-u", str(exporter),
             "--db", str(db_path),
-            "--out", str(out_json),
+            "--out", str(export_out),
             "--names-json", str(names_path),
             "--top-n", str(int(cfg.get("top_n", 250))),
             "--cell-precision", str(int(cfg.get("cell_precision", 5))),
             "--keep-per-cell", str(int(cfg.get("keep_per_cell", 6))),
             "--max-points-per-plant", str(int(cfg.get("max_points_per_plant", 700))),
         ]
-        
-        country = cfg.get("country", "DE")
+
         if country:
             export_args += ["--country", str(country)]
-        
-        y_from = cfg.get("year_from")
-        y_to = cfg.get("year_to")
         if y_from is not None:
             export_args += ["--year-from", str(int(y_from))]
         if y_to is not None:
             export_args += ["--year-to", str(int(y_to))]
-        
+
         if cfg.get("images_index"):
             export_args += ["--images-index", str(repo / cfg["images_index"])]
-        
-        if cfg.get("gzip_json", False):
-            export_args += ["--gzip"]
 
+        if gzip_json:
+            export_args += ["--gzip"]
 
         run(export_args)
 
-        # 6) Advance state ONLY after export success
+        # Advance state ONLY after export success
         new_state = dict(state)
         new_state["last_interpreted_since"] = utc_today_date()
-        # clear pending if present
         if "pending" in new_state:
             new_state["pending"]["completed_at"] = utc_now_iso()
             new_state["pending"]["status"] = "exported"
         save_json(state_path, new_state)
 
-        if cfg.get("stats_enabled", False):
-            stats_script = repo / "tools" / "generate_stats.py"
-            stats_out = repo / "data" / "stats_summary.json"
-            subprocess.check_call([
-                "python", str(stats_script),
-                "--db", str(db_path),
-                "--occ-json", str(out_json_occ),  # if you gzip, pass the unzipped path you wrote; or write unzipped too
-                "--out", str(stats_out),
-                "--country", str(country),
-                "--year-from", str(int(y_from)) if y_from is not None else "",
-                "--year-to", str(int(y_to)) if y_to is not None else "",
-            ])
+        # Stats
+        if bool(cfg.get("stats_enabled", False)):
+            if not stats_script.exists():
+                raise SystemExit(f"stats_enabled=true but missing: {stats_script}")
 
+            # Use *exactly the file we just wrote*
+            occ_for_stats = export_out
+            if not occ_for_stats.exists():
+                # ultra defensive: if exporter appends .gz despite path
+                gz_alt = Path(str(occ_for_stats) + ".gz")
+                if gz_alt.exists():
+                    occ_for_stats = gz_alt
+                else:
+                    raise FileNotFoundError(f"Expected export output missing: {export_out}")
+
+            stats_out = repo / "data" / "stats_summary.json"
+            stats_args = [
+                "python", "-u", str(stats_script),
+                "--db", str(db_path),
+                "--occ-json", str(occ_for_stats),
+                "--out", str(stats_out),
+                "--country", str(country) if country else "DE",
+            ]
+            if y_from is not None:
+                stats_args += ["--year-from", str(int(y_from))]
+            if y_to is not None:
+                stats_args += ["--year-to", str(int(y_to))]
+
+            run(stats_args)
 
         print(f"Updated state: last_interpreted_since={new_state['last_interpreted_since']}", flush=True)
-        print(f"Wrote: {out_json}", flush=True)
+        print(f"Wrote: {export_out}", flush=True)
 
 
 if __name__ == "__main__":
