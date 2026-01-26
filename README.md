@@ -20,7 +20,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 | File | Purpose |
 | --- | --- |
 | `data/names_de.json` | Scientific name → German/common name mapping. This is the authoritative whitelist of plants to include. |
-| `data/gbif_download_config.json` | Country, year range, daily/weekly download windows, export sampling parameters, and gzip settings. |
+| `data/gbif_download_config.json` | Country, year range, daily window length, weekly refresh weekday, export sampling parameters, and gzip settings. |
 
 ### 2) Name resolution (`tools/resolve_taxa.py`)
 
@@ -54,7 +54,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
   - `HAS_COORDINATE = true` (if configured)
   - Country + year range filters
   - `TAXON_KEY in [...]` from resolved plant list
-  - `LAST_INTERPRETED >= <since>` using a rolling daily/weekly window
+  - `LAST_INTERPRETED >= <since>` using a daily window or a weekly full-range refresh
 - Requests a DWCA download, waits for completion, and downloads the zip into `.tmp_gbif/<key>`.
 
 ### 4) SQLite load (`tools/dwca_sqlite.py`)
@@ -66,7 +66,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 ### 5) Daily updates summary (`data/updates_summary.json`)
 
 - Immediately after extraction, the pipeline scans the DWCA `occurrence.txt`.
-- Counts how many points were **newly interpreted in the current window** (daily by default, weekly during refresh runs), filtered to the whitelist.
+- Counts how many points were **newly interpreted in the current window** (daily by default, full-range on weekly refresh), filtered to the whitelist.
 - Outputs a compact JSON summary:
 
 ```json
@@ -142,7 +142,7 @@ The workflow runs in two jobs:
 
 1. **build_db** (db-only):
    - Resolves names (cached by hash if unchanged).
-   - Requests + downloads DWCA using a daily window (or weekly refresh window).
+   - Requests + downloads DWCA using a daily window (or weekly full-range refresh window).
    - Generates `updates_summary.json`.
    - Loads `dwca.sqlite` and uploads it as an artifact.
    - Commits state/cache/output files back to the repo.
@@ -173,9 +173,10 @@ The workflow runs in two jobs:
 - **Download cache reuse in CI:**
   - Added an Actions cache for `.tmp_gbif` so ZIP downloads can be reused across runs.
 
-### ✅ Rolling daily/weekly download windows
+### ✅ Rolling daily + weekly full-range refresh
 
-- Daily runs download the last 24 hours of interpretations; weekly refresh runs widen the window to re-check older updates.
+- Daily runs download the last 24 hours of interpretations.
+- Weekly runs (Wednesday 04:00 CET) refresh from `year_from` through today to capture updates to older records.
 - The SQLite DB is cached between runs so daily DWCA deltas can be appended to the existing dataset.
 
 ### ✅ New daily updates summary

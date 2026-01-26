@@ -5,8 +5,7 @@
   "require_coordinate": true,
 
   "daily_window_days": 1,
-  "weekly_window_days": 7,
-  "weekly_refresh_days": 7,
+  "weekly_refresh_weekday": 2,
 
   "top_n": 250,
 

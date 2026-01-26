@@ -83,7 +83,9 @@ def summarize_updates(
     occ_path: Path,
     allowed_scientific_names: set[str],
     out_path: Path,
-    last_day: str,
+    window_start: str,
+    window_days: int,
+    window_label: str,
     download_key: str,
     interpreted_since: str,
 ) -> None:
@@ -96,7 +98,9 @@ def summarize_updates(
         "generated_at": utc_now_iso(),
         "download_key": download_key,
         "interpreted_since": interpreted_since,
-        "last_day": last_day,
+        "window_start": window_start,
+        "window_days": window_days,
+        "window_label": window_label,
         "total_new_points": 0,
         "per_species": {},
     }
@@ -118,7 +122,7 @@ def summarize_updates(
 
             interpreted = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
             interpreted_date = parse_iso_date(interpreted or "")
-            if interpreted_date is None or interpreted_date < last_day:
+            if interpreted_date is None or interpreted_date < window_start:
                 continue
 
             summary["total_new_points"] += 1
@@ -210,8 +214,8 @@ def download_zip(key: str, out_zip: Path) -> None:
 def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool]:
     today = datetime.now(timezone.utc).date()
     daily_window_days = int(cfg.get("daily_window_days", 1))
-    weekly_window_days = int(cfg.get("weekly_window_days", 7))
-    weekly_refresh_days = int(cfg.get("weekly_refresh_days", 7))
+    weekly_refresh_weekday = int(cfg.get("weekly_refresh_weekday", 2))
+    year_from = cfg.get("year_from")
 
     last_weekly = state.get("last_weekly_refresh")
     last_weekly_date = None
@@ -221,18 +225,15 @@ def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool
         except Exception:
             last_weekly_date = None
 
-    weekly_due = (
-        last_weekly_date is None
-        or (today - last_weekly_date).days >= max(1, weekly_refresh_days)
-    )
+    weekly_due = today.weekday() == weekly_refresh_weekday and last_weekly_date != today
 
-    if weekly_due:
-        window_days = max(1, weekly_window_days)
-        since_dt = today - timedelta(days=window_days)
+    if weekly_due and year_from is not None:
+        since_dt = datetime(int(year_from), 1, 1, tzinfo=timezone.utc).date()
     else:
         window_days = max(1, daily_window_days)
         since_dt = today - timedelta(days=window_days)
 
+    window_days = max(1, (today - since_dt).days)
     since = since_dt.isoformat()
     return since, today.isoformat(), window_days, weekly_due
 
@@ -355,13 +356,15 @@ def main() -> None:
             z.extractall(tmp)
 
         occ_path = find_occurrence_file(tmp)
-        last_day = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+        window_start = since
         allowed_names = {p.get("scientificName") for p in resolved_plants if p.get("scientificName")}
         summarize_updates(
             occ_path=occ_path,
             allowed_scientific_names=allowed_names,
             out_path=updates_summary_path,
-            last_day=last_day,
+            window_start=window_start,
+            window_days=window_days,
+            window_label=window_label,
             download_key=key,
             interpreted_since=since,
         )
