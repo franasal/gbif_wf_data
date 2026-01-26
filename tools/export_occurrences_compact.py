@@ -217,7 +217,8 @@ def main():
         true_totals: Dict[str, int] = {}
 
         if name_map:
-            top_species = list(name_map.keys())[:max(1, int(args.top_n))]
+            # Whitelist is authoritative; include all configured plants.
+            top_species = list(name_map.keys())
 
             # Create temp table once (used by stream query too)
             con.execute("DROP TABLE IF EXISTS _wanted_species;")
@@ -260,22 +261,20 @@ def main():
         # TaxonKey dict (best effort, always defined)
         taxon_by_species: Dict[str, Optional[int]] = {s: None for s in top_species}
         if col_taxon:
-            for sci in top_species:
-                row = con.execute(
-                    f"""
-                    SELECT o.{col_taxon} AS tk
-                    FROM {table} o
-                    JOIN _wanted_species w ON w.sci = o.{col_sci}
-                    {where_sql} AND o.{col_sci}=? AND o.{col_taxon} IS NOT NULL
-                    LIMIT 1
-                    """,
-                    params + [sci],
-                ).fetchone()
-                if row and row["tk"] is not None:
-                    try:
-                        taxon_by_species[sci] = int(row["tk"])
-                    except Exception:
-                        taxon_by_species[sci] = None
+            q_taxon = f"""
+              SELECT o.{col_sci} AS sci, MAX(o.{col_taxon}) AS tk
+              FROM {table} o
+              JOIN _wanted_species w ON w.sci = o.{col_sci}
+              {where_sql} AND o.{col_taxon} IS NOT NULL
+              GROUP BY o.{col_sci}
+            """
+            for row in con.execute(q_taxon, params):
+                if row["sci"] is None or row["tk"] is None:
+                    continue
+                try:
+                    taxon_by_species[str(row["sci"])] = int(row["tk"])
+                except Exception:
+                    taxon_by_species[str(row["sci"])] = None
 
         # 2) Prepare output containers
         keep_per_cell = max(1, int(args.keep_per_cell))
