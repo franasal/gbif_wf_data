@@ -142,7 +142,7 @@ The workflow runs in two jobs:
 
 1. **build_db** (db-only):
    - Resolves names (cached by hash if unchanged).
-- Requests + downloads DWCA using a daily window (or weekly full-range refresh window).
+   - Requests + downloads DWCA using a daily window (or weekly full-range refresh window).
    - Generates `updates_summary.json`.
    - Loads `dwca.sqlite` and uploads it as an artifact.
    - Commits state/cache/output files back to the repo.
