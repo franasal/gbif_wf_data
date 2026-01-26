@@ -28,14 +28,6 @@ jobs:
           restore-keys: |
             gbif-zip-${{ runner.os }}-
 
-      - name: Restore SQLite cache
-        uses: actions/cache@v4
-        with:
-          path: data/dwca.sqlite
-          key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            dwca-sqlite-${{ runner.os }}-
-
       - name: Install deps
         run: |
           python -m pip install --upgrade pip

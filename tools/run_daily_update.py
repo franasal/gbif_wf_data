@@ -83,9 +83,7 @@ def summarize_updates(
     occ_path: Path,
     allowed_scientific_names: set[str],
     out_path: Path,
-    window_start: str,
-    window_days: int,
-    window_label: str,
+    last_day: str,
     download_key: str,
     interpreted_since: str,
 ) -> None:
@@ -98,9 +96,7 @@ def summarize_updates(
         "generated_at": utc_now_iso(),
         "download_key": download_key,
         "interpreted_since": interpreted_since,
-        "window_start": window_start,
-        "window_days": window_days,
-        "window_label": window_label,
+        "last_day": last_day,
         "total_new_points": 0,
         "per_species": {},
     }
@@ -122,7 +118,7 @@ def summarize_updates(
 
             interpreted = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
             interpreted_date = parse_iso_date(interpreted or "")
-            if interpreted_date is None or interpreted_date < window_start:
+            if interpreted_date is None or interpreted_date < last_day:
                 continue
 
             summary["total_new_points"] += 1
@@ -359,15 +355,13 @@ def main() -> None:
             z.extractall(tmp)
 
         occ_path = find_occurrence_file(tmp)
-        window_start = since
+        last_day = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
         allowed_names = {p.get("scientificName") for p in resolved_plants if p.get("scientificName")}
         summarize_updates(
             occ_path=occ_path,
             allowed_scientific_names=allowed_names,
             out_path=updates_summary_path,
-            window_start=window_start,
-            window_days=window_days,
-            window_label=window_label,
+            last_day=last_day,
             download_key=key,
             interpreted_since=since,
         )
