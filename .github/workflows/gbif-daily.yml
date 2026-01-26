@@ -35,7 +35,6 @@ jobs:
 
       - name: Run DB-only pipeline (GBIF download + load SQLite)
         env:
-          GBIF_DOWNLOAD_KEY: ${{ secrets.GBIF_DOWNLOAD_KEY }}
           GBIF_USER: ${{ secrets.GBIF_USER }}
           GBIF_PWD: ${{ secrets.GBIF_PWD }}
           GBIF_EMAIL: ${{ secrets.GBIF_EMAIL }}
