@@ -207,24 +207,41 @@ def download_zip(key: str, out_zip: Path) -> None:
                     f.write(chunk)
 
 
-def compute_since(state: dict, cfg: dict) -> tuple[str, str]:
-    last = state.get("last_interpreted_since") or utc_today_date()
-    overlap_days = int(cfg.get("overlap_days", 2))
+def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool]:
+    today = datetime.now(timezone.utc).date()
+    daily_window_days = int(cfg.get("daily_window_days", 1))
+    weekly_window_days = int(cfg.get("weekly_window_days", 7))
+    weekly_refresh_days = int(cfg.get("weekly_refresh_days", 7))
 
-    try:
-        last_dt = datetime.fromisoformat(last).replace(tzinfo=timezone.utc)
-    except Exception:
-        last_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    last_weekly = state.get("last_weekly_refresh")
+    last_weekly_date = None
+    if last_weekly:
+        try:
+            last_weekly_date = datetime.fromisoformat(last_weekly).date()
+        except Exception:
+            last_weekly_date = None
 
-    since_dt = last_dt - timedelta(days=max(0, overlap_days))
-    since = since_dt.date().isoformat()
-    return since, last
+    weekly_due = (
+        last_weekly_date is None
+        or (today - last_weekly_date).days >= max(1, weekly_refresh_days)
+    )
+
+    if weekly_due:
+        window_days = max(1, weekly_window_days)
+        since_dt = today - timedelta(days=window_days)
+    else:
+        window_days = max(1, daily_window_days)
+        since_dt = today - timedelta(days=window_days)
+
+    since = since_dt.isoformat()
+    return since, today.isoformat(), window_days, weekly_due
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Daily GBIF update pipeline (supports db-only/export-only).")
     ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
     ap.add_argument("--export-only", action="store_true", help="Run export+stats only (requires existing data/dwca.sqlite).")
+    ap.add_argument("--download-key", default=None, help="Reuse an existing GBIF download key instead of requesting a new one.")
     args = ap.parse_args()
 
     if args.db_only and args.export_only:
@@ -296,28 +313,40 @@ def main() -> None:
         if not isinstance(resolved_plants, list) or not resolved_plants:
             raise SystemExit(f"{resolved_path} is empty or invalid.")
 
-        since, last_used = compute_since(state, cfg)
-        overlap_days = int(cfg.get("overlap_days", 2))
-        print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days}, last_state={last_used})", flush=True)
+        since, window_end, window_days, weekly_due = compute_download_window(state, cfg)
+        window_label = "weekly" if weekly_due else "daily"
+        print(
+            f"Delta filter: LAST_INTERPRETED >= {since} ({window_label} window_days={window_days})",
+            flush=True,
+        )
 
         user = os.environ["GBIF_USER"]
         pwd = os.environ["GBIF_PWD"]
         email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
 
         predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
-        key = request_download(user, pwd, email, predicate)
-        print(f"Requested download: {key}", flush=True)
+        key = args.download_key or os.environ.get("GBIF_DOWNLOAD_KEY")
+        if key:
+            print(f"Using existing GBIF download: {key}", flush=True)
+        else:
+            key = request_download(user, pwd, email, predicate)
+            print(f"Requested download: {key}", flush=True)
 
-        state["pending"] = {"download_key": key, "since": since, "requested_at": utc_now_iso()}
+        state["pending"] = {
+            "download_key": key,
+            "since": since,
+            "requested_at": utc_now_iso(),
+            "window_days": window_days,
+            "window_label": window_label,
+        }
         save_json(state_path, state)
-
-        poll_until_succeeded(key)
 
         tmp = repo / ".tmp_gbif" / key
         tmp.mkdir(parents=True, exist_ok=True)
         zip_path = tmp / f"{key}.zip"
 
         if not zip_path.exists() or zip_path.stat().st_size == 0:
+            poll_until_succeeded(key)
             download_zip(key, zip_path)
         else:
             print(f"ZIP already present: {zip_path}", flush=True)
@@ -345,6 +374,10 @@ def main() -> None:
         ])
 
         print(f"DB ready: {db_path}", flush=True)
+
+        if weekly_due:
+            state["last_weekly_refresh"] = window_end
+            save_json(state_path, state)
 
         if mode == "db-only":
             print("DB-only run finished. Export is handled by the next job.", flush=True)
