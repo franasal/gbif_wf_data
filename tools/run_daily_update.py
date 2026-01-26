@@ -245,6 +245,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Daily GBIF update pipeline (supports db-only/export-only).")
     ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
     ap.add_argument("--export-only", action="store_true", help="Run export+stats only (requires existing data/dwca.sqlite).")
+    ap.add_argument("--download-key", default=None, help="Reuse an existing GBIF download key instead of requesting a new one.")
     args = ap.parse_args()
 
     if args.db_only and args.export_only:
@@ -328,8 +329,12 @@ def main() -> None:
         email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
 
         predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
-        key = request_download(user, pwd, email, predicate)
-        print(f"Requested download: {key}", flush=True)
+        key = args.download_key or os.environ.get("GBIF_DOWNLOAD_KEY")
+        if key:
+            print(f"Using existing GBIF download: {key}", flush=True)
+        else:
+            key = request_download(user, pwd, email, predicate)
+            print(f"Requested download: {key}", flush=True)
 
         state["pending"] = {
             "download_key": key,
@@ -340,13 +345,12 @@ def main() -> None:
         }
         save_json(state_path, state)
 
-        poll_until_succeeded(key)
-
         tmp = repo / ".tmp_gbif" / key
         tmp.mkdir(parents=True, exist_ok=True)
         zip_path = tmp / f"{key}.zip"
 
         if not zip_path.exists() or zip_path.stat().st_size == 0:
+            poll_until_succeeded(key)
             download_zip(key, zip_path)
         else:
             print(f"ZIP already present: {zip_path}", flush=True)
