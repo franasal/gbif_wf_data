@@ -2,8 +2,11 @@
   "country": "DE",
   "year_from": 2023,
   "year_to": 2026,
-  "overlap_days": 2,
   "require_coordinate": true,
+
+  "daily_window_days": 1,
+  "weekly_window_days": 7,
+  "weekly_refresh_days": 7,
 
   "top_n": 250,
 
@@ -12,7 +15,5 @@
   "max_points_per_plant": 700,
 
   "gzip_json": true,
-  "images_index": "assets/plant_images/index.json",
-
-  "stats_enabled": true
+  "images_index": "assets/plant_images/index.json"
 }
