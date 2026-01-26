@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -7,6 +8,7 @@ import time
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Iterable
 
 import requests
 
@@ -37,6 +39,94 @@ def save_json(path: Path, data) -> None:
 def run(cmd: list[str], env: dict | None = None) -> None:
     print("RUN:", " ".join(cmd), flush=True)
     subprocess.check_call(cmd, env=env)
+
+
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def find_occurrence_file(dwca_dir: Path) -> Path:
+    occ = dwca_dir / "occurrence.txt"
+    if occ.exists():
+        return occ
+    txts = sorted(dwca_dir.glob("*.txt"), key=lambda p: p.stat().st_size, reverse=True)
+    if not txts:
+        raise FileNotFoundError(f"No .txt files found in {dwca_dir}")
+    return txts[0]
+
+
+def parse_iso_date(value: str) -> str | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        if len(value) >= 10:
+            return value[:10]
+        return datetime.fromisoformat(value).date().isoformat()
+    except Exception:
+        return None
+
+
+def resolve_first(row: dict, keys: Iterable[str]) -> str | None:
+    for key in keys:
+        val = row.get(key)
+        if val:
+            return str(val).strip()
+    return None
+
+
+def summarize_updates(
+    occ_path: Path,
+    allowed_scientific_names: set[str],
+    out_path: Path,
+    last_day: str,
+    download_key: str,
+    interpreted_since: str,
+) -> None:
+    import csv
+
+    if not occ_path.exists():
+        raise SystemExit(f"Missing occurrence file for summary: {occ_path}")
+
+    summary = {
+        "generated_at": utc_now_iso(),
+        "download_key": download_key,
+        "interpreted_since": interpreted_since,
+        "last_day": last_day,
+        "total_new_points": 0,
+        "per_species": {},
+    }
+
+    with occ_path.open("r", encoding="utf-8", errors="replace", newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            sci = resolve_first(
+                row,
+                [
+                    "scientificName",
+                    "species",
+                    "acceptedScientificName",
+                    "canonicalName",
+                ],
+            )
+            if not sci or sci not in allowed_scientific_names:
+                continue
+
+            interpreted = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
+            interpreted_date = parse_iso_date(interpreted or "")
+            if interpreted_date is None or interpreted_date < last_day:
+                continue
+
+            summary["total_new_points"] += 1
+            summary["per_species"][sci] = summary["per_species"].get(sci, 0) + 1
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Wrote update summary: {out_path}", flush=True)
 
 
 def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: str) -> dict:
@@ -164,13 +254,12 @@ def main() -> None:
     db_path = repo / "data" / "dwca.sqlite"
     out_json_plain = repo / "data" / "occurrences_compact.json"
     out_json_gz = repo / "data" / "occurrences_compact.json.gz"
+    updates_summary_path = repo / "data" / "updates_summary.json"
 
     # Scripts
     resolver = repo / "tools" / "resolve_taxa.py"
     loader = repo / "tools" / "dwca_sqlite.py"
     exporter = repo / "tools" / "export_occurrences_compact.py"
-    stats_script = repo / "tools" / "generate_stats.py"
-
     if not names_path.exists():
         raise SystemExit(f"Missing: {names_path}")
     for p in (resolver, loader, exporter):
@@ -189,12 +278,19 @@ def main() -> None:
 
     # ---------- DB STEP ----------
     if mode in ("all", "db-only"):
-        run([
-            "python", "-u", str(resolver),
-            "--names", str(names_path),
-            "--out", str(resolved_path),
-            "--cache", str(cache_path),
-        ])
+        names_hash = file_sha256(names_path)
+        has_cached = resolved_path.exists() and cache_path.exists()
+        if state.get("names_hash") == names_hash and has_cached:
+            print("Names unchanged; using cached taxa resolution.", flush=True)
+        else:
+            run([
+                "python", "-u", str(resolver),
+                "--names", str(names_path),
+                "--out", str(resolved_path),
+                "--cache", str(cache_path),
+            ])
+            state["names_hash"] = names_hash
+            save_json(state_path, state)
 
         resolved_plants = load_json(resolved_path, [])
         if not isinstance(resolved_plants, list) or not resolved_plants:
@@ -228,6 +324,18 @@ def main() -> None:
 
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(tmp)
+
+        occ_path = find_occurrence_file(tmp)
+        last_day = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+        allowed_names = {p.get("scientificName") for p in resolved_plants if p.get("scientificName")}
+        summarize_updates(
+            occ_path=occ_path,
+            allowed_scientific_names=allowed_names,
+            out_path=updates_summary_path,
+            last_day=last_day,
+            download_key=key,
+            interpreted_since=since,
+        )
 
         run([
             "python", "-u", str(loader), "load",
@@ -280,36 +388,6 @@ def main() -> None:
             new_state["pending"]["completed_at"] = utc_now_iso()
             new_state["pending"]["status"] = "exported"
         save_json(state_path, new_state)
-
-        # Stats
-        if bool(cfg.get("stats_enabled", False)):
-            if not stats_script.exists():
-                raise SystemExit(f"stats_enabled=true but missing: {stats_script}")
-
-            # Use *exactly the file we just wrote*
-            occ_for_stats = export_out
-            if not occ_for_stats.exists():
-                # ultra defensive: if exporter appends .gz despite path
-                gz_alt = Path(str(occ_for_stats) + ".gz")
-                if gz_alt.exists():
-                    occ_for_stats = gz_alt
-                else:
-                    raise FileNotFoundError(f"Expected export output missing: {export_out}")
-
-            stats_out = repo / "data" / "stats_summary.json"
-            stats_args = [
-                "python", "-u", str(stats_script),
-                "--db", str(db_path),
-                "--occ-json", str(occ_for_stats),
-                "--out", str(stats_out),
-                "--country", str(country) if country else "DE",
-            ]
-            if y_from is not None:
-                stats_args += ["--year-from", str(int(y_from))]
-            if y_to is not None:
-                stats_args += ["--year-to", str(int(y_to))]
-
-            run(stats_args)
 
         print(f"Updated state: last_interpreted_since={new_state['last_interpreted_since']}", flush=True)
         print(f"Wrote: {export_out}", flush=True)
