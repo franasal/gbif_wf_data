@@ -2,7 +2,7 @@ name: Daily GBIF update
 
 on:
   schedule:
-    - cron: "17 3 * * *"  # daily, UTC
+    - cron: "0 3 * * *"  # daily, 04:00 CET (03:00 UTC)
   workflow_dispatch: {}
 
 permissions:
@@ -19,6 +19,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Restore GBIF download cache
+        uses: actions/cache@v4
+        with:
+          path: .tmp_gbif
+          key: gbif-zip-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            gbif-zip-${{ runner.os }}-
+
+      - name: Restore SQLite cache
+        uses: actions/cache@v4
+        with:
+          path: data/dwca.sqlite
+          key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            dwca-sqlite-${{ runner.os }}-
 
       - name: Install deps
         run: |
@@ -48,7 +64,16 @@ jobs:
           git config user.name "gbif-bot"
           git config user.email "gbif-bot@users.noreply.github.com"
       
-          git add data/gbif_state.json data/plants_resolved.json data/taxon_cache.json data/occurrences_compact.json.gz || true
+          for file in \
+            data/gbif_state.json \
+            data/plants_resolved.json \
+            data/taxon_cache.json \
+            data/occurrences_compact.json.gz \
+            data/updates_summary.json; do
+            if [ -f "$file" ]; then
+              git add "$file"
+            fi
+          done
       
           if git diff --cached --quiet; then
             echo "No changes."
@@ -101,5 +126,4 @@ jobs:
             --tag latest \
             --title "Latest GBIF export" \
             --notes "Auto-generated data export. Assets: occurrences_compact.json.gz (+ optional stats/thumbs)." \
-            --dataset data/occurrences_compact.json.gz \
-            --stats data/stats_summary.json
+            --dataset data/occurrences_compact.json.gz

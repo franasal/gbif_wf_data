@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -7,6 +8,7 @@ import time
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Iterable
 
 import requests
 
@@ -37,6 +39,98 @@ def save_json(path: Path, data) -> None:
 def run(cmd: list[str], env: dict | None = None) -> None:
     print("RUN:", " ".join(cmd), flush=True)
     subprocess.check_call(cmd, env=env)
+
+
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def find_occurrence_file(dwca_dir: Path) -> Path:
+    occ = dwca_dir / "occurrence.txt"
+    if occ.exists():
+        return occ
+    txts = sorted(dwca_dir.glob("*.txt"), key=lambda p: p.stat().st_size, reverse=True)
+    if not txts:
+        raise FileNotFoundError(f"No .txt files found in {dwca_dir}")
+    return txts[0]
+
+
+def parse_iso_date(value: str) -> str | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        if len(value) >= 10:
+            return value[:10]
+        return datetime.fromisoformat(value).date().isoformat()
+    except Exception:
+        return None
+
+
+def resolve_first(row: dict, keys: Iterable[str]) -> str | None:
+    for key in keys:
+        val = row.get(key)
+        if val:
+            return str(val).strip()
+    return None
+
+
+def summarize_updates(
+    occ_path: Path,
+    allowed_scientific_names: set[str],
+    out_path: Path,
+    window_start: str,
+    window_days: int,
+    window_label: str,
+    download_key: str,
+    interpreted_since: str,
+) -> None:
+    import csv
+
+    if not occ_path.exists():
+        raise SystemExit(f"Missing occurrence file for summary: {occ_path}")
+
+    summary = {
+        "generated_at": utc_now_iso(),
+        "download_key": download_key,
+        "interpreted_since": interpreted_since,
+        "window_start": window_start,
+        "window_days": window_days,
+        "window_label": window_label,
+        "total_new_points": 0,
+        "per_species": {},
+    }
+
+    with occ_path.open("r", encoding="utf-8", errors="replace", newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            sci = resolve_first(
+                row,
+                [
+                    "scientificName",
+                    "species",
+                    "acceptedScientificName",
+                    "canonicalName",
+                ],
+            )
+            if not sci or sci not in allowed_scientific_names:
+                continue
+
+            interpreted = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
+            interpreted_date = parse_iso_date(interpreted or "")
+            if interpreted_date is None or interpreted_date < window_start:
+                continue
+
+            summary["total_new_points"] += 1
+            summary["per_species"][sci] = summary["per_species"].get(sci, 0) + 1
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Wrote update summary: {out_path}", flush=True)
 
 
 def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: str) -> dict:
@@ -117,24 +211,38 @@ def download_zip(key: str, out_zip: Path) -> None:
                     f.write(chunk)
 
 
-def compute_since(state: dict, cfg: dict) -> tuple[str, str]:
-    last = state.get("last_interpreted_since") or utc_today_date()
-    overlap_days = int(cfg.get("overlap_days", 2))
+def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool]:
+    today = datetime.now(timezone.utc).date()
+    daily_window_days = int(cfg.get("daily_window_days", 1))
+    weekly_refresh_weekday = int(cfg.get("weekly_refresh_weekday", 2))
+    year_from = cfg.get("year_from")
 
-    try:
-        last_dt = datetime.fromisoformat(last).replace(tzinfo=timezone.utc)
-    except Exception:
-        last_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    last_weekly = state.get("last_weekly_refresh")
+    last_weekly_date = None
+    if last_weekly:
+        try:
+            last_weekly_date = datetime.fromisoformat(last_weekly).date()
+        except Exception:
+            last_weekly_date = None
 
-    since_dt = last_dt - timedelta(days=max(0, overlap_days))
-    since = since_dt.date().isoformat()
-    return since, last
+    weekly_due = today.weekday() == weekly_refresh_weekday and last_weekly_date != today
+
+    if weekly_due and year_from is not None:
+        since_dt = datetime(int(year_from), 1, 1, tzinfo=timezone.utc).date()
+    else:
+        window_days = max(1, daily_window_days)
+        since_dt = today - timedelta(days=window_days)
+
+    window_days = max(1, (today - since_dt).days)
+    since = since_dt.isoformat()
+    return since, today.isoformat(), window_days, weekly_due
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Daily GBIF update pipeline (supports db-only/export-only).")
     ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
     ap.add_argument("--export-only", action="store_true", help="Run export+stats only (requires existing data/dwca.sqlite).")
+    ap.add_argument("--download-key", default=None, help="Reuse an existing GBIF download key instead of requesting a new one.")
     args = ap.parse_args()
 
     if args.db_only and args.export_only:
@@ -164,13 +272,12 @@ def main() -> None:
     db_path = repo / "data" / "dwca.sqlite"
     out_json_plain = repo / "data" / "occurrences_compact.json"
     out_json_gz = repo / "data" / "occurrences_compact.json.gz"
+    updates_summary_path = repo / "data" / "updates_summary.json"
 
     # Scripts
     resolver = repo / "tools" / "resolve_taxa.py"
     loader = repo / "tools" / "dwca_sqlite.py"
     exporter = repo / "tools" / "export_occurrences_compact.py"
-    stats_script = repo / "tools" / "generate_stats.py"
-
     if not names_path.exists():
         raise SystemExit(f"Missing: {names_path}")
     for p in (resolver, loader, exporter):
@@ -189,45 +296,78 @@ def main() -> None:
 
     # ---------- DB STEP ----------
     if mode in ("all", "db-only"):
-        run([
-            "python", "-u", str(resolver),
-            "--names", str(names_path),
-            "--out", str(resolved_path),
-            "--cache", str(cache_path),
-        ])
+        names_hash = file_sha256(names_path)
+        has_cached = resolved_path.exists() and cache_path.exists()
+        if state.get("names_hash") == names_hash and has_cached:
+            print("Names unchanged; using cached taxa resolution.", flush=True)
+        else:
+            run([
+                "python", "-u", str(resolver),
+                "--names", str(names_path),
+                "--out", str(resolved_path),
+                "--cache", str(cache_path),
+            ])
+            state["names_hash"] = names_hash
+            save_json(state_path, state)
 
         resolved_plants = load_json(resolved_path, [])
         if not isinstance(resolved_plants, list) or not resolved_plants:
             raise SystemExit(f"{resolved_path} is empty or invalid.")
 
-        since, last_used = compute_since(state, cfg)
-        overlap_days = int(cfg.get("overlap_days", 2))
-        print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days}, last_state={last_used})", flush=True)
+        since, window_end, window_days, weekly_due = compute_download_window(state, cfg)
+        window_label = "weekly" if weekly_due else "daily"
+        print(
+            f"Delta filter: LAST_INTERPRETED >= {since} ({window_label} window_days={window_days})",
+            flush=True,
+        )
 
         user = os.environ["GBIF_USER"]
         pwd = os.environ["GBIF_PWD"]
         email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
 
         predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
-        key = request_download(user, pwd, email, predicate)
-        print(f"Requested download: {key}", flush=True)
+        key = args.download_key or os.environ.get("GBIF_DOWNLOAD_KEY")
+        if key:
+            print(f"Using existing GBIF download: {key}", flush=True)
+        else:
+            key = request_download(user, pwd, email, predicate)
+            print(f"Requested download: {key}", flush=True)
 
-        state["pending"] = {"download_key": key, "since": since, "requested_at": utc_now_iso()}
+        state["pending"] = {
+            "download_key": key,
+            "since": since,
+            "requested_at": utc_now_iso(),
+            "window_days": window_days,
+            "window_label": window_label,
+        }
         save_json(state_path, state)
-
-        poll_until_succeeded(key)
 
         tmp = repo / ".tmp_gbif" / key
         tmp.mkdir(parents=True, exist_ok=True)
         zip_path = tmp / f"{key}.zip"
 
         if not zip_path.exists() or zip_path.stat().st_size == 0:
+            poll_until_succeeded(key)
             download_zip(key, zip_path)
         else:
             print(f"ZIP already present: {zip_path}", flush=True)
 
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(tmp)
+
+        occ_path = find_occurrence_file(tmp)
+        window_start = since
+        allowed_names = {p.get("scientificName") for p in resolved_plants if p.get("scientificName")}
+        summarize_updates(
+            occ_path=occ_path,
+            allowed_scientific_names=allowed_names,
+            out_path=updates_summary_path,
+            window_start=window_start,
+            window_days=window_days,
+            window_label=window_label,
+            download_key=key,
+            interpreted_since=since,
+        )
 
         run([
             "python", "-u", str(loader), "load",
@@ -237,6 +377,10 @@ def main() -> None:
         ])
 
         print(f"DB ready: {db_path}", flush=True)
+
+        if weekly_due:
+            state["last_weekly_refresh"] = window_end
+            save_json(state_path, state)
 
         if mode == "db-only":
             print("DB-only run finished. Export is handled by the next job.", flush=True)
@@ -280,36 +424,6 @@ def main() -> None:
             new_state["pending"]["completed_at"] = utc_now_iso()
             new_state["pending"]["status"] = "exported"
         save_json(state_path, new_state)
-
-        # Stats
-        if bool(cfg.get("stats_enabled", False)):
-            if not stats_script.exists():
-                raise SystemExit(f"stats_enabled=true but missing: {stats_script}")
-
-            # Use *exactly the file we just wrote*
-            occ_for_stats = export_out
-            if not occ_for_stats.exists():
-                # ultra defensive: if exporter appends .gz despite path
-                gz_alt = Path(str(occ_for_stats) + ".gz")
-                if gz_alt.exists():
-                    occ_for_stats = gz_alt
-                else:
-                    raise FileNotFoundError(f"Expected export output missing: {export_out}")
-
-            stats_out = repo / "data" / "stats_summary.json"
-            stats_args = [
-                "python", "-u", str(stats_script),
-                "--db", str(db_path),
-                "--occ-json", str(occ_for_stats),
-                "--out", str(stats_out),
-                "--country", str(country) if country else "DE",
-            ]
-            if y_from is not None:
-                stats_args += ["--year-from", str(int(y_from))]
-            if y_to is not None:
-                stats_args += ["--year-to", str(int(y_to))]
-
-            run(stats_args)
 
         print(f"Updated state: last_interpreted_since={new_state['last_interpreted_since']}", flush=True)
         print(f"Wrote: {export_out}", flush=True)

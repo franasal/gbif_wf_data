@@ -60,6 +60,8 @@ def init_db(db_path: str):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_latlon ON occ(lat, lon);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_yearmonth ON occ(year DESC, month DESC);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_species ON occ(species, scientificName);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_scientificName ON occ(scientificName);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_species_only ON occ(species);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_species_yearmonth ON occ(species, year DESC, month DESC);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_state ON occ(stateProvince);")
     con.commit()
