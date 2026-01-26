@@ -83,7 +83,9 @@ def summarize_updates(
     occ_path: Path,
     allowed_scientific_names: set[str],
     out_path: Path,
-    last_day: str,
+    window_start: str,
+    window_days: int,
+    window_label: str,
     download_key: str,
     interpreted_since: str,
 ) -> None:
@@ -96,7 +98,9 @@ def summarize_updates(
         "generated_at": utc_now_iso(),
         "download_key": download_key,
         "interpreted_since": interpreted_since,
-        "last_day": last_day,
+        "window_start": window_start,
+        "window_days": window_days,
+        "window_label": window_label,
         "total_new_points": 0,
         "per_species": {},
     }
@@ -118,7 +122,7 @@ def summarize_updates(
 
             interpreted = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
             interpreted_date = parse_iso_date(interpreted or "")
-            if interpreted_date is None or interpreted_date < last_day:
+            if interpreted_date is None or interpreted_date < window_start:
                 continue
 
             summary["total_new_points"] += 1
@@ -207,18 +211,34 @@ def download_zip(key: str, out_zip: Path) -> None:
                     f.write(chunk)
 
 
-def compute_since(state: dict, cfg: dict) -> tuple[str, str]:
-    last = state.get("last_interpreted_since") or utc_today_date()
-    overlap_days = int(cfg.get("overlap_days", 2))
+def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool]:
+    today = datetime.now(timezone.utc).date()
+    daily_window_days = int(cfg.get("daily_window_days", 1))
+    weekly_window_days = int(cfg.get("weekly_window_days", 7))
+    weekly_refresh_days = int(cfg.get("weekly_refresh_days", 7))
 
-    try:
-        last_dt = datetime.fromisoformat(last).replace(tzinfo=timezone.utc)
-    except Exception:
-        last_dt = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    last_weekly = state.get("last_weekly_refresh")
+    last_weekly_date = None
+    if last_weekly:
+        try:
+            last_weekly_date = datetime.fromisoformat(last_weekly).date()
+        except Exception:
+            last_weekly_date = None
 
-    since_dt = last_dt - timedelta(days=max(0, overlap_days))
-    since = since_dt.date().isoformat()
-    return since, last
+    weekly_due = (
+        last_weekly_date is None
+        or (today - last_weekly_date).days >= max(1, weekly_refresh_days)
+    )
+
+    if weekly_due:
+        window_days = max(1, weekly_window_days)
+        since_dt = today - timedelta(days=window_days)
+    else:
+        window_days = max(1, daily_window_days)
+        since_dt = today - timedelta(days=window_days)
+
+    since = since_dt.isoformat()
+    return since, today.isoformat(), window_days, weekly_due
 
 
 def main() -> None:
@@ -296,9 +316,12 @@ def main() -> None:
         if not isinstance(resolved_plants, list) or not resolved_plants:
             raise SystemExit(f"{resolved_path} is empty or invalid.")
 
-        since, last_used = compute_since(state, cfg)
-        overlap_days = int(cfg.get("overlap_days", 2))
-        print(f"Delta filter: LAST_INTERPRETED >= {since} (overlap_days={overlap_days}, last_state={last_used})", flush=True)
+        since, window_end, window_days, weekly_due = compute_download_window(state, cfg)
+        window_label = "weekly" if weekly_due else "daily"
+        print(
+            f"Delta filter: LAST_INTERPRETED >= {since} ({window_label} window_days={window_days})",
+            flush=True,
+        )
 
         user = os.environ["GBIF_USER"]
         pwd = os.environ["GBIF_PWD"]
@@ -308,7 +331,13 @@ def main() -> None:
         key = request_download(user, pwd, email, predicate)
         print(f"Requested download: {key}", flush=True)
 
-        state["pending"] = {"download_key": key, "since": since, "requested_at": utc_now_iso()}
+        state["pending"] = {
+            "download_key": key,
+            "since": since,
+            "requested_at": utc_now_iso(),
+            "window_days": window_days,
+            "window_label": window_label,
+        }
         save_json(state_path, state)
 
         poll_until_succeeded(key)
@@ -326,13 +355,15 @@ def main() -> None:
             z.extractall(tmp)
 
         occ_path = find_occurrence_file(tmp)
-        last_day = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+        window_start = since
         allowed_names = {p.get("scientificName") for p in resolved_plants if p.get("scientificName")}
         summarize_updates(
             occ_path=occ_path,
             allowed_scientific_names=allowed_names,
             out_path=updates_summary_path,
-            last_day=last_day,
+            window_start=window_start,
+            window_days=window_days,
+            window_label=window_label,
             download_key=key,
             interpreted_since=since,
         )
@@ -345,6 +376,10 @@ def main() -> None:
         ])
 
         print(f"DB ready: {db_path}", flush=True)
+
+        if weekly_due:
+            state["last_weekly_refresh"] = window_end
+            save_json(state_path, state)
 
         if mode == "db-only":
             print("DB-only run finished. Export is handled by the next job.", flush=True)

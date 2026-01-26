@@ -2,8 +2,11 @@
   "country": "DE",
   "year_from": 2023,
   "year_to": 2026,
-  "overlap_days": 2,
   "require_coordinate": true,
+
+  "daily_window_days": 1,
+  "weekly_window_days": 7,
+  "weekly_refresh_days": 7,
 
   "top_n": 250,
 
