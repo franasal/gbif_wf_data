@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-02-04T04:28:58Z",
-  "download_key": "0000027-260126135527185",
-  "interpreted_since": "2023-01-01",
-  "window_start": "2023-01-01",
-  "window_days": 1130,
+  "generated_at": "2026-02-04T22:49:49Z",
+  "download_key": "0012657-260129131611470",
+  "interpreted_since": "2023-02-05",
+  "window_start": "2023-02-05",
+  "window_days": 1095,
   "window_label": "weekly",
   "total_new_points": 0,
   "per_species": {}

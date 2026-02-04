@@ -1,12 +1,12 @@
 {
   "last_interpreted_since": "2026-01-01",
   "pending": {
-    "download_key": "0000027-260126135527185",
-    "since": "2023-01-01",
-    "requested_at": "2026-02-04T04:28:50Z",
-    "window_days": 1130,
+    "download_key": "0012657-260129131611470",
+    "since": "2023-02-05",
+    "requested_at": "2026-02-04T22:19:27Z",
+    "window_days": 1095,
     "window_label": "weekly"
   },
   "names_hash": "2e4046008416169403dc5f945e54865d22dfbf0f572dd31b06fd74772fb0b404",
-  "last_weekly_refresh": "2026-02-03"
+  "last_weekly_refresh": "2026-02-04"
 }
