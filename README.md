@@ -20,7 +20,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 | File | Purpose |
 | --- | --- |
 | `data/names_de.json` | Scientific name → German/common name mapping. This is the authoritative whitelist of plants to include. |
-| `data/gbif_download_config.json` | Country, year range, daily window length, weekly refresh weekday, export sampling parameters, and gzip settings. |
+| `data/gbif_download_config.json` | Country, (optional) year range, rolling window days, daily window length, weekly refresh weekday, export sampling parameters, and gzip settings. |
 
 ### 2) Name resolution (`tools/resolve_taxa.py`)
 
@@ -62,6 +62,12 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 - Finds `occurrence.txt` in the DWCA bundle.
 - Loads it into `data/dwca.sqlite` with the `occ` table and supporting indexes.
 - Stores the raw TSV only if needed (pipeline uses `--no-raw` for performance).
+- Optionally writes `data/changes_summary.json`, reporting how many existing records changed and which fields changed.
+
+### 4b) Rolling window prune (optional)
+
+- If `rolling_window_days` is set, the pipeline can delete rows older than the cutoff date after each load.
+- Pruning is date-based (eventDate or year/month/day) and can be skipped with `--no-prune`.
 
 ### 5) Daily updates summary (`data/updates_summary.json`)
 
@@ -198,6 +204,7 @@ The workflow runs in two jobs:
 | `data/dwca.sqlite` | SQLite database of occurrences. |
 | `data/occurrences_compact.json.gz` | Compact export for visualization/use. |
 | `data/updates_summary.json` | Daily counts of newly interpreted points. |
+| `data/changes_summary.json` | Field-level change summary vs. existing DB (if enabled). |
 
 ---
 

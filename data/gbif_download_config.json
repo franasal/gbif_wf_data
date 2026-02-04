@@ -3,6 +3,7 @@
   "year_from": 2023,
   "year_to": 2026,
   "require_coordinate": true,
+  "rolling_window_days": 1095,
 
   "daily_window_days": 1,
   "weekly_refresh_weekday": 2,

@@ -215,6 +215,7 @@ def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool
     today = datetime.now(timezone.utc).date()
     daily_window_days = int(cfg.get("daily_window_days", 1))
     weekly_refresh_weekday = int(cfg.get("weekly_refresh_weekday", 2))
+    rolling_window_days = int(cfg.get("rolling_window_days", 0) or 0)
     year_from = cfg.get("year_from")
 
     last_weekly = state.get("last_weekly_refresh")
@@ -227,7 +228,9 @@ def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool
 
     weekly_due = today.weekday() == weekly_refresh_weekday and last_weekly_date != today
 
-    if weekly_due and year_from is not None:
+    if weekly_due and rolling_window_days > 0:
+        since_dt = today - timedelta(days=rolling_window_days)
+    elif weekly_due and year_from is not None:
         since_dt = datetime(int(year_from), 1, 1, tzinfo=timezone.utc).date()
     else:
         window_days = max(1, daily_window_days)
@@ -238,11 +241,41 @@ def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool
     return since, today.isoformat(), window_days, weekly_due
 
 
+def prune_db_by_date(db_path: Path, cutoff_date: str) -> int:
+    import sqlite3
+
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute("PRAGMA journal_mode=WAL;")
+
+    delete_sql = """
+      DELETE FROM occ
+      WHERE
+        (
+          eventDate IS NOT NULL
+          AND length(eventDate) >= 10
+          AND date(substr(eventDate, 1, 10)) < date(?)
+        )
+        OR
+        (
+          year IS NOT NULL AND month IS NOT NULL AND day IS NOT NULL
+          AND date(printf('%04d-%02d-%02d', year, month, day)) < date(?)
+        )
+    """
+    cur.execute(delete_sql, (cutoff_date, cutoff_date))
+    deleted = cur.rowcount if cur.rowcount is not None else 0
+    con.commit()
+    con.close()
+    return deleted
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Daily GBIF update pipeline (supports db-only/export-only).")
     ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
     ap.add_argument("--export-only", action="store_true", help="Run export+stats only (requires existing data/dwca.sqlite).")
     ap.add_argument("--download-key", default=None, help="Reuse an existing GBIF download key instead of requesting a new one.")
+    ap.add_argument("--no-prune", action="store_true", help="Skip rolling-window DB pruning after load.")
+    ap.add_argument("--no-change-log", action="store_true", help="Skip writing change summary JSON.")
     args = ap.parse_args()
 
     if args.db_only and args.export_only:
@@ -273,6 +306,7 @@ def main() -> None:
     out_json_plain = repo / "data" / "occurrences_compact.json"
     out_json_gz = repo / "data" / "occurrences_compact.json.gz"
     updates_summary_path = repo / "data" / "updates_summary.json"
+    changes_summary_path = repo / "data" / "changes_summary.json"
 
     # Scripts
     resolver = repo / "tools" / "resolve_taxa.py"
@@ -291,6 +325,12 @@ def main() -> None:
     y_from = cfg.get("year_from")
     y_to = cfg.get("year_to")
     gzip_json = bool(cfg.get("gzip_json", False))
+    rolling_window_days = int(cfg.get("rolling_window_days", 0) or 0)
+    if rolling_window_days > 0:
+        today = datetime.now(timezone.utc).date()
+        cutoff = today - timedelta(days=rolling_window_days)
+        y_from = cutoff.year
+        y_to = today.year
 
     export_out = out_json_gz if gzip_json else out_json_plain
 
@@ -369,14 +409,24 @@ def main() -> None:
             interpreted_since=since,
         )
 
-        run([
+        load_cmd = [
             "python", "-u", str(loader), "load",
             "--dwca", str(tmp),
             "--db", str(db_path),
             "--no-raw",
-        ])
+        ]
+        if not args.no_change_log:
+            load_cmd += ["--changes-out", str(changes_summary_path)]
+        run(load_cmd)
 
         print(f"DB ready: {db_path}", flush=True)
+
+        if rolling_window_days > 0 and not args.no_prune:
+            cutoff = (datetime.now(timezone.utc).date() - timedelta(days=rolling_window_days)).isoformat()
+            deleted = prune_db_by_date(db_path, cutoff)
+            print(f"Pruned rows older than {cutoff}: {deleted}", flush=True)
+        elif rolling_window_days > 0 and args.no_prune:
+            print("Prune skipped (--no-prune).", flush=True)
 
         if weekly_due:
             state["last_weekly_refresh"] = window_end

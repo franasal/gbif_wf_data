@@ -2,7 +2,9 @@
 import argparse
 import os
 import csv
+import json
 import sqlite3
+from datetime import datetime, timezone
 
 PALETTE = [
     "#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
@@ -87,12 +89,59 @@ def get_meta(con, key, default=None):
     row = con.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
     return row[0] if row else default
 
-def load(dwca_dir: str, db_path: str, limit: int = 0, commit_every: int = 2000, keep_raw: bool = True):
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+def _norm_int(x):
+    try:
+        return int(x)
+    except Exception:
+        return None
+
+def _norm_float(x):
+    try:
+        return round(float(x), 6)
+    except Exception:
+        return None
+
+def _norm_str(x):
+    if x is None:
+        return None
+    s = str(x).strip()
+    return s if s else None
+
+def _compute_field_changes(incoming) -> dict:
+    changed = {}
+    for key, (old, new) in incoming.items():
+        if old != new:
+            changed[key] = {"from": old, "to": new}
+    return changed
+
+def load(
+    dwca_dir: str,
+    db_path: str,
+    limit: int = 0,
+    commit_every: int = 2000,
+    keep_raw: bool = True,
+    changes_out: str | None = None,
+):
     occ_path = find_occurrence(dwca_dir)
     print("Using:", occ_path)
 
     con = init_db(db_path)
     cur = con.cursor()
+
+    track_changes = bool(changes_out)
+    existing_count = con.execute("SELECT COUNT(1) FROM occ").fetchone()[0]
+    can_compare = track_changes and existing_count > 0
+
+    changes_summary = {
+        "generated_at": _utc_now_iso(),
+        "rows_scanned": 0,
+        "rows_new": 0,
+        "rows_updated": 0,
+        "fields_changed": {},
+    }
 
     with open(occ_path, "r", encoding="utf-8", errors="replace", newline="") as f:
         reader = csv.DictReader(f, delimiter="\t")
@@ -133,6 +182,49 @@ def load(dwca_dir: str, db_path: str, limit: int = 0, commit_every: int = 2000, 
             if keep_raw:
                 raw_tsv = "\t".join([row.get(c, "") or "" for c in cols])
 
+            if track_changes:
+                changes_summary["rows_scanned"] += 1
+                if can_compare:
+                    existing = cur.execute(
+                        """
+                        SELECT scientificName, species, taxonKey, eventDate, year, month, day,
+                               countryCode, stateProvince, basisOfRecord, datasetKey, license, lat, lon
+                        FROM occ
+                        WHERE gbifID = ?
+                        """,
+                        (gbifID,),
+                    ).fetchone()
+                else:
+                    existing = None
+
+                incoming = {
+                    "scientificName": (_norm_str(existing["scientificName"]) if existing else None, _norm_str(scientificName)),
+                    "species": (_norm_str(existing["species"]) if existing else None, _norm_str(species)),
+                    "taxonKey": (_norm_int(existing["taxonKey"]) if existing else None, _norm_int(taxonKey)),
+                    "eventDate": (_norm_str(existing["eventDate"]) if existing else None, _norm_str(eventDate)),
+                    "year": (_norm_int(existing["year"]) if existing else None, _norm_int(year)),
+                    "month": (_norm_int(existing["month"]) if existing else None, _norm_int(month)),
+                    "day": (_norm_int(existing["day"]) if existing else None, _norm_int(day)),
+                    "countryCode": (_norm_str(existing["countryCode"]) if existing else None, _norm_str(countryCode)),
+                    "stateProvince": (_norm_str(existing["stateProvince"]) if existing else None, _norm_str(stateProvince)),
+                    "basisOfRecord": (_norm_str(existing["basisOfRecord"]) if existing else None, _norm_str(basisOfRecord)),
+                    "datasetKey": (_norm_str(existing["datasetKey"]) if existing else None, _norm_str(datasetKey)),
+                    "license": (_norm_str(existing["license"]) if existing else None, _norm_str(license_)),
+                    "lat": (_norm_float(existing["lat"]) if existing else None, _norm_float(lat)),
+                    "lon": (_norm_float(existing["lon"]) if existing else None, _norm_float(lon)),
+                }
+
+                if existing is None:
+                    changes_summary["rows_new"] += 1
+                else:
+                    field_changes = _compute_field_changes(incoming)
+                    if field_changes:
+                        changes_summary["rows_updated"] += 1
+                        for field in field_changes.keys():
+                            changes_summary["fields_changed"][field] = (
+                                changes_summary["fields_changed"].get(field, 0) + 1
+                            )
+
             batch.append((
                 gbifID, scientificName, species, taxonKey,
                 eventDate, year, month, day,
@@ -167,6 +259,14 @@ def load(dwca_dir: str, db_path: str, limit: int = 0, commit_every: int = 2000, 
 
     con.close()
     print("Done. Rows:", n, "DB:", db_path)
+    if track_changes:
+        out_path = changes_out
+        out_dir = os.path.dirname(out_path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(changes_summary, f, ensure_ascii=False, indent=2)
+        print("Wrote changes summary:", out_path)
 
 def main():
     ap = argparse.ArgumentParser(prog="dwca_sqlite.py")
@@ -178,11 +278,19 @@ def main():
     p_load.add_argument("--limit", type=int, default=0)
     p_load.add_argument("--commit-every", type=int, default=2000)
     p_load.add_argument("--no-raw", action="store_true")
+    p_load.add_argument("--changes-out", default=None, help="Write change summary JSON (diffs vs existing DB)")
 
     args = ap.parse_args()
 
     if args.cmd == "load":
-        load(args.dwca, args.db, limit=args.limit, commit_every=args.commit_every, keep_raw=not args.no_raw)
+        load(
+            args.dwca,
+            args.db,
+            limit=args.limit,
+            commit_every=args.commit_every,
+            keep_raw=not args.no_raw,
+            changes_out=args.changes_out,
+        )
 
 if __name__ == "__main__":
     main()
