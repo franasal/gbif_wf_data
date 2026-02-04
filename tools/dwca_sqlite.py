@@ -25,6 +25,7 @@ def find_occurrence(dwca_dir: str) -> str:
 
 def init_db(db_path: str):
     con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
     cur = con.cursor()
     cur.execute("PRAGMA journal_mode=WAL;")
     cur.execute("PRAGMA synchronous=NORMAL;")
