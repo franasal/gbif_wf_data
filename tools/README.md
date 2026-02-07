@@ -15,3 +15,20 @@ Additional tooling:
 
 - `publish_image_license_inventory.py` builds a versioned legal inventory from image manifests and can publish metadata to Firestore.
 - It also writes `data/legal/image_license_todo.json` with actionable entries missing license/source-page/creator fields.
+
+## Light build size tuning
+
+`build_light_release.py` supports two knobs to reduce release size:
+
+- `--max-long-edge`: caps the longer image side (works for portrait + landscape).
+- `--max-images-per-plant`: limits images kept per plant folder.
+
+Example compact profile:
+
+```bash
+python tools/build_light_release.py \
+  --max-long-edge 896 \
+  --quality 70 \
+  --max-images-per-plant 3 \
+  --zip-path gbif_wf_data/assets/plant_images/light_build/gbif_light_896_q70_cap3.zip
+```

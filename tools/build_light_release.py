@@ -80,6 +80,7 @@ def ensure_webp(
     src: Path,
     dst: Path,
     max_width: int,
+    max_long_edge: int,
     quality: int,
 ) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +88,14 @@ def ensure_webp(
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
         w, h = img.size
-        if w > max_width:
+        if max_long_edge > 0:
+            long_edge = max(w, h)
+            if long_edge > max_long_edge:
+                scale = max_long_edge / long_edge
+                new_w = max(1, int(w * scale))
+                new_h = max(1, int(h * scale))
+                img = img.resize((new_w, new_h), Image.LANCZOS)
+        elif w > max_width:
             new_h = int(h * (max_width / w))
             img = img.resize((max_width, new_h), Image.LANCZOS)
         img.save(dst, format="WEBP", quality=quality, method=6, optimize=True)
@@ -119,10 +127,22 @@ def main() -> None:
         help="Max width for webp conversion.",
     )
     parser.add_argument(
+        "--max-long-edge",
+        type=int,
+        default=0,
+        help="Optional max long edge. If >0, applies to both portrait and landscape.",
+    )
+    parser.add_argument(
         "--quality",
         type=int,
         default=82,
         help="WebP quality (0-100).",
+    )
+    parser.add_argument(
+        "--max-images-per-plant",
+        type=int,
+        default=0,
+        help="Optional cap per plant folder; 0 means no cap.",
     )
     parser.add_argument(
         "--index-csv",
@@ -165,8 +185,11 @@ def main() -> None:
         selected_dir = plant_dir / args.selected_folder
         if not selected_dir.exists():
             continue
+        picked_for_plant = 0
         for src in sorted(selected_dir.iterdir()):
             if not src.is_file() or src.suffix.lower() not in IMAGE_EXTS:
+                continue
+            if args.max_images_per_plant > 0 and picked_for_plant >= args.max_images_per_plant:
                 continue
             parsed = parse_filename(src)
             occ_key = ""
@@ -180,7 +203,8 @@ def main() -> None:
             rel_dir = base_slug
             out_name = f"{src.stem}.webp"
             dst = out_root / rel_dir / out_name
-            ensure_webp(src, dst, args.max_width, args.quality)
+            ensure_webp(src, dst, args.max_width, args.max_long_edge, args.quality)
+            picked_for_plant += 1
 
             image_entry = {
                 "plant_slug": rel_dir,
@@ -207,7 +231,9 @@ def main() -> None:
     manifest = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "max_width": args.max_width,
+        "max_long_edge": args.max_long_edge,
         "quality": args.quality,
+        "max_images_per_plant": args.max_images_per_plant,
         "images_count": len(images),
         "images": images,
     }
@@ -238,6 +264,9 @@ def main() -> None:
                 zf.write(file_path, arcname=str(rel))
 
     print("Done.")
+    total_bytes = sum(int(r.get("bytes", 0) or 0) for r in images)
+    print(f"Images: {len(images)}")
+    print(f"Image bytes: {total_bytes} ({total_bytes / 1024 / 1024:.2f} MB)")
     print(f"Manifest JSON: {manifest_json}")
     print(f"Manifest CSV: {manifest_csv}")
     print(f"ZIP: {zip_path}")
