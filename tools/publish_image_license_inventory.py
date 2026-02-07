@@ -154,17 +154,14 @@ def _stats(rows: List[Dict[str, str]], required_types: set[str]) -> Dict[str, An
 
 def _publish_to_firebase(
     payload: Dict[str, Any],
-    csv_path: Path,
-    json_path: Path,
     project_id: str,
-    bucket_name: str,
+    firestore_database_id: str,
     collection: str,
     latest_doc_id: str,
-    storage_prefix: str,
 ) -> None:
     try:
         import firebase_admin
-        from firebase_admin import credentials, firestore, storage
+        from firebase_admin import credentials, firestore
     except ImportError as exc:
         raise RuntimeError(
             "Missing dependency 'firebase-admin'. Install with: pip install firebase-admin"
@@ -176,21 +173,14 @@ def _publish_to_firebase(
     else:
         cred = credentials.ApplicationDefault()
 
-    app = firebase_admin.initialize_app(
-        cred,
-        {"projectId": project_id, "storageBucket": bucket_name},
-    )
+    app = firebase_admin.initialize_app(cred, {"projectId": project_id})
 
     version = payload["version"]
-    prefix = storage_prefix.strip("/")
-    csv_obj = f"{prefix}/{version}/image_license_inventory.csv"
-    json_obj = f"{prefix}/{version}/image_license_inventory.json"
-
-    bucket = storage.bucket(app=app)
-    bucket.blob(csv_obj).upload_from_filename(str(csv_path), content_type="text/csv")
-    bucket.blob(json_obj).upload_from_filename(str(json_path), content_type="application/json")
-
-    db = firestore.client(app=app)
+    db = (
+        firestore.client(app=app)
+        if not firestore_database_id
+        else firestore.client(app=app, database_id=firestore_database_id)
+    )
     meta = {
         "version": version,
         "generatedAt": payload["generatedAt"],
@@ -198,8 +188,14 @@ def _publish_to_firebase(
         "stats": payload["stats"],
         "sourceFiles": payload["sourceFiles"],
         "artifacts": {
-            "csv": {"storagePath": csv_obj, "sha256": payload["artifacts"]["csvSha256"]},
-            "json": {"storagePath": json_obj, "sha256": payload["artifacts"]["jsonSha256"]},
+            "csv": {
+                "path": payload["artifacts"]["csvPath"],
+                "sha256": payload["artifacts"]["csvSha256"],
+            },
+            "json": {
+                "path": payload["artifacts"]["jsonPath"],
+                "sha256": payload["artifacts"]["jsonSha256"],
+            },
         },
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
@@ -241,7 +237,11 @@ def main() -> int:
         help="Source type(s) to enforce license gate on (repeatable).",
     )
     parser.add_argument("--project-id", default=os.getenv("FIREBASE_PROJECT_ID", ""))
-    parser.add_argument("--bucket", default=os.getenv("FIREBASE_STORAGE_BUCKET", ""))
+    parser.add_argument(
+        "--firestore-database-id",
+        default=os.getenv("FIRESTORE_DATABASE_ID", ""),
+        help="Firestore database ID. Leave empty to use default database.",
+    )
     parser.add_argument(
         "--collection",
         default=os.getenv("LEGAL_INVENTORY_COLLECTION", "legal_inventory_versions"),
@@ -249,10 +249,6 @@ def main() -> int:
     parser.add_argument(
         "--latest-doc-id",
         default=os.getenv("LEGAL_INVENTORY_LATEST_DOC_ID", "latest"),
-    )
-    parser.add_argument(
-        "--storage-prefix",
-        default=os.getenv("LEGAL_INVENTORY_STORAGE_PREFIX", "legal/image-license-inventory"),
     )
     args = parser.parse_args()
 
@@ -318,23 +314,17 @@ def main() -> int:
 
     if not args.project_id:
         raise SystemExit("Missing --project-id or FIREBASE_PROJECT_ID")
-    if not args.bucket:
-        raise SystemExit("Missing --bucket or FIREBASE_STORAGE_BUCKET")
 
     _publish_to_firebase(
         payload=payload,
-        csv_path=out_csv,
-        json_path=out_json,
         project_id=args.project_id,
-        bucket_name=args.bucket,
+        firestore_database_id=args.firestore_database_id,
         collection=args.collection,
         latest_doc_id=args.latest_doc_id,
-        storage_prefix=args.storage_prefix,
     )
     print(
         "Published to Firebase:",
         f"project={args.project_id}",
-        f"bucket={args.bucket}",
         f"collection={args.collection}",
         f"version={args.version}",
     )

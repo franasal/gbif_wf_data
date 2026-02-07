@@ -29,11 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-      FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      FIRESTORE_DATABASE_ID: ${{ secrets.FIRESTORE_DATABASE_ID }}
       LEGAL_INVENTORY_COLLECTION: ${{ secrets.LEGAL_INVENTORY_COLLECTION }}
       LEGAL_INVENTORY_LATEST_DOC_ID: ${{ secrets.LEGAL_INVENTORY_LATEST_DOC_ID }}
-      LEGAL_INVENTORY_STORAGE_PREFIX: ${{ secrets.LEGAL_INVENTORY_STORAGE_PREFIX }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,7 +69,6 @@ jobs:
           ${{
             (github.event_name == 'push' || inputs.publish) &&
             env.FIREBASE_PROJECT_ID != '' &&
-            env.FIREBASE_STORAGE_BUCKET != '' &&
             env.FIREBASE_SERVICE_ACCOUNT_JSON != ''
           }}
         run: |
@@ -81,9 +79,9 @@ jobs:
           ${{
             (github.event_name == 'push' || inputs.publish) &&
             (env.FIREBASE_PROJECT_ID == '' ||
-             env.FIREBASE_STORAGE_BUCKET == '' ||
              env.FIREBASE_SERVICE_ACCOUNT_JSON == '')
           }}
         run: |
           echo "Skipping Firebase publish because required secrets are missing."
-          echo "Set FIREBASE_PROJECT_ID, FIREBASE_STORAGE_BUCKET, FIREBASE_SERVICE_ACCOUNT_JSON."
+          echo "Set FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_JSON."
+          echo "Optional for non-default Firestore DB: FIRESTORE_DATABASE_ID."

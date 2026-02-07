@@ -13,4 +13,4 @@ The DB step also writes `data/updates_summary.json`, which summarizes new points
 
 Additional tooling:
 
-- `publish_image_license_inventory.py` builds a versioned legal inventory from image manifests and can publish metadata/artifacts to Firebase Storage + Firestore.
+- `publish_image_license_inventory.py` builds a versioned legal inventory from image manifests and can publish metadata to Firestore.
