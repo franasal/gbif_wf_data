@@ -231,6 +231,39 @@ def _normalize_doc_id(value: str, label: str) -> str:
     return normalized
 
 
+def _normalize_project_id(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise SystemExit("Missing --project-id or FIREBASE_PROJECT_ID")
+    if any(ch.isspace() for ch in normalized):
+        raise SystemExit(
+            "Invalid project id: contains whitespace. Check FIREBASE_PROJECT_ID secret for newlines/spaces."
+        )
+    if "/" in normalized:
+        raise SystemExit(
+            "Invalid project id: expected plain project id (e.g. 'wild-forager-8159c'), not a path."
+        )
+    return normalized
+
+
+def _normalize_firestore_database_id(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        return ""
+    if any(ch.isspace() for ch in normalized):
+        raise SystemExit(
+            "Invalid FIRESTORE_DATABASE_ID: contains whitespace. Check secret for newlines/spaces."
+        )
+    if normalized.startswith("projects/") and "/databases/" in normalized:
+        normalized = normalized.split("/databases/", 1)[1]
+    if "/" in normalized:
+        raise SystemExit(
+            "Invalid FIRESTORE_DATABASE_ID: expected database id only "
+            "(e.g. 'wild--forager-db' or '(default)')."
+        )
+    return normalized
+
+
 def _publish_to_firebase(
     payload: Dict[str, Any],
     project_id: str,
@@ -344,6 +377,8 @@ def main() -> int:
     out_csv = Path(args.out_csv)
     out_json = Path(args.out_json)
     out_todo_json = Path(args.out_todo_json)
+    project_id = _normalize_project_id(args.project_id)
+    firestore_database_id = _normalize_firestore_database_id(args.firestore_database_id)
     collection = _normalize_collection_path(args.collection)
     latest_doc_id = _normalize_doc_id(args.latest_doc_id, "latest doc id")
     version = _normalize_doc_id(args.version, "version")
@@ -410,19 +445,16 @@ def main() -> int:
     if not args.publish:
         return 0
 
-    if not args.project_id:
-        raise SystemExit("Missing --project-id or FIREBASE_PROJECT_ID")
-
     _publish_to_firebase(
         payload=payload,
-        project_id=args.project_id,
-        firestore_database_id=args.firestore_database_id,
+        project_id=project_id,
+        firestore_database_id=firestore_database_id,
         collection=collection,
         latest_doc_id=latest_doc_id,
     )
     print(
         "Published to Firebase:",
-        f"project={args.project_id}",
+        f"project={project_id}",
         f"collection={collection}",
         f"version={version}",
     )
