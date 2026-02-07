@@ -1,0 +1,89 @@
+name: Legal Inventory
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "assets/plant_images/gbif_samples/index.json"
+      - "assets/plant_images/light_build/images_manifest.json"
+      - "tools/publish_image_license_inventory.py"
+      - ".github/workflows/legal-inventory.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to Firebase"
+        required: false
+        default: true
+        type: boolean
+      fail_on_missing_license:
+        description: "Fail on missing license (required source types only)"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  legal_inventory:
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      LEGAL_INVENTORY_COLLECTION: ${{ secrets.LEGAL_INVENTORY_COLLECTION }}
+      LEGAL_INVENTORY_LATEST_DOC_ID: ${{ secrets.LEGAL_INVENTORY_LATEST_DOC_ID }}
+      LEGAL_INVENTORY_STORAGE_PREFIX: ${{ secrets.LEGAL_INVENTORY_STORAGE_PREFIX }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt firebase-admin
+
+      - name: Build inventory
+        run: |
+          python tools/publish_image_license_inventory.py
+
+      - name: Optional quality gate
+        if: ${{ github.event_name == 'push' || inputs.fail_on_missing_license }}
+        run: |
+          python tools/publish_image_license_inventory.py --fail-on-missing-license
+
+      - name: Upload inventory artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: legal-inventory-${{ github.run_number }}
+          path: |
+            data/legal/image_license_inventory.csv
+            data/legal/image_license_inventory.json
+
+      - name: Publish to Firebase
+        if: >-
+          ${{
+            (github.event_name == 'push' || inputs.publish) &&
+            env.FIREBASE_PROJECT_ID != '' &&
+            env.FIREBASE_STORAGE_BUCKET != '' &&
+            env.FIREBASE_SERVICE_ACCOUNT_JSON != ''
+          }}
+        run: |
+          python tools/publish_image_license_inventory.py --publish
+
+      - name: Publish skipped notice
+        if: >-
+          ${{
+            (github.event_name == 'push' || inputs.publish) &&
+            (env.FIREBASE_PROJECT_ID == '' ||
+             env.FIREBASE_STORAGE_BUCKET == '' ||
+             env.FIREBASE_SERVICE_ACCOUNT_JSON == '')
+          }}
+        run: |
+          echo "Skipping Firebase publish because required secrets are missing."
+          echo "Set FIREBASE_PROJECT_ID, FIREBASE_STORAGE_BUCKET, FIREBASE_SERVICE_ACCOUNT_JSON."

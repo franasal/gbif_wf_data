@@ -48,12 +48,16 @@ def http_get(
     url = f"{BASE}{path}"
     headers = {"User-Agent": UA}
     for attempt in range(max_retries):
-        r = session.get(url, params=params, headers=headers, timeout=timeout)
-        if r.status_code == 429:
+        try:
+            r = session.get(url, params=params, headers=headers, timeout=timeout)
+            if r.status_code == 429 or r.status_code >= 500:
+                time.sleep(retry_sleep * (attempt + 1))
+                continue
+            r.raise_for_status()
+            return r.json()
+        except requests.RequestException:
             time.sleep(retry_sleep * (attempt + 1))
             continue
-        r.raise_for_status()
-        return r.json()
     r.raise_for_status()
     return r.json()
 

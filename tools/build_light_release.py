@@ -18,6 +18,8 @@ except ImportError as exc:
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".gif"}
 
+KNOWN_PREFIXES = ["reviewed", "has_lookalike", "lookallike", "missing"]
+
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -57,6 +59,21 @@ def parse_filename(path: Path) -> Optional[Tuple[str, str]]:
     occ_key = parts[-3]
     id_hash = parts[-2]
     return (occ_key, id_hash)
+
+
+def strip_prefixes(folder_name: str) -> Tuple[str, Dict[str, bool]]:
+    flags = {p: False for p in KNOWN_PREFIXES}
+    base = folder_name
+    changed = True
+    while changed:
+        changed = False
+        for prefix in KNOWN_PREFIXES:
+            token = f"{prefix}_"
+            if base.startswith(token):
+                base = base[len(token) :]
+                flags[prefix] = True
+                changed = True
+    return base, flags
 
 
 def ensure_webp(
@@ -134,6 +151,8 @@ def main() -> None:
     manifest_json = Path(args.manifest_json)
     manifest_csv = Path(args.manifest_csv)
     zip_path = Path(args.zip_path)
+    if zip_path.exists():
+        zip_path.unlink()
     index_map = load_index_map(Path(args.index_csv))
 
     images: List[Dict[str, Any]] = []
@@ -157,13 +176,16 @@ def main() -> None:
                 occ_key, id_hash = parsed
                 meta_row = index_map.get((occ_key, id_hash), {})
 
-            rel_dir = plant_dir.name
+            base_slug, prefix_flags = strip_prefixes(plant_dir.name)
+            rel_dir = base_slug
             out_name = f"{src.stem}.webp"
             dst = out_root / rel_dir / out_name
             ensure_webp(src, dst, args.max_width, args.quality)
 
             image_entry = {
                 "plant_slug": rel_dir,
+                "plant_slug_raw": plant_dir.name,
+                "curation_prefixes": [k for k, v in prefix_flags.items() if v],
                 "source_path": str(src),
                 "output_path": str(dst),
                 "output_rel": str(dst.relative_to(out_root)),
@@ -202,11 +224,16 @@ def main() -> None:
         manifest_csv.write_text("")
 
     zip_path.parent.mkdir(parents=True, exist_ok=True)
-    with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zf:
+    with ZipFile(zip_path, "w", compression=ZIP_DEFLATED, allowZip64=True) as zf:
         zf.write(manifest_json, arcname="images_manifest.json")
         zf.write(manifest_csv, arcname="images_manifest.csv")
         for file_path in out_root.rglob("*"):
-            if file_path.is_file() and file_path != manifest_json and file_path != manifest_csv:
+            if (
+                file_path.is_file()
+                and file_path != manifest_json
+                and file_path != manifest_csv
+                and file_path != zip_path
+            ):
                 rel = file_path.relative_to(out_root)
                 zf.write(file_path, arcname=str(rel))
 

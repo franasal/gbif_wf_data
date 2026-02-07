@@ -10,3 +10,7 @@ The GitHub Actions workflow uses these scripts:
 Legacy helper scripts that are not part of the GitHub Actions workflow have been removed to keep this directory focused.
 
 The DB step also writes `data/updates_summary.json`, which summarizes new points interpreted in the current download window for the configured plant list (daily window or weekly full-range refresh).
+
+Additional tooling:
+
+- `publish_image_license_inventory.py` builds a versioned legal inventory from image manifests and can publish metadata/artifacts to Firebase Storage + Firestore.
