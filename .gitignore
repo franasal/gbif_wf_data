@@ -1,4 +1,12 @@
-assets/
+assets/*
+!assets/plant_images/
+assets/plant_images/*
+!assets/plant_images/gbif_samples/
+!assets/plant_images/light_build/
+assets/plant_images/gbif_samples/*
+!assets/plant_images/gbif_samples/index.json
+assets/plant_images/light_build/*
+!assets/plant_images/light_build/images_manifest.json
 .tmp_gbif/
 .tmp_gbif/*
 __pycache__/
