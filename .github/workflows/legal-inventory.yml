@@ -63,6 +63,7 @@ jobs:
           path: |
             data/legal/image_license_inventory.csv
             data/legal/image_license_inventory.json
+            data/legal/image_license_todo.json
 
       - name: Publish to Firebase
         if: >-

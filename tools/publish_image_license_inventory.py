@@ -29,6 +29,22 @@ CSV_FIELDS = [
 ]
 
 
+TODO_FIELDS = [
+    "source_type",
+    "plant_name",
+    "asset_path",
+    "image_url",
+    "source_page_url",
+    "license_label",
+    "license_url",
+    "creator",
+    "rights_holder",
+    "attribution_text",
+    "occurrence_key",
+    "dataset_key",
+]
+
+
 def _clean(value: Any) -> str:
     if value is None:
         return ""
@@ -152,6 +168,69 @@ def _stats(rows: List[Dict[str, str]], required_types: set[str]) -> Dict[str, An
     }
 
 
+def _todo_entry(row: Dict[str, str]) -> Dict[str, str]:
+    return {k: row.get(k, "") for k in TODO_FIELDS}
+
+
+def _counts_by_source_type(items: List[Dict[str, str]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for row in items:
+        source_type = row.get("source_type", "unknown")
+        counts[source_type] = counts.get(source_type, 0) + 1
+    return counts
+
+
+def _build_todo_report(rows: List[Dict[str, str]]) -> Dict[str, Any]:
+    missing_license = []
+    missing_source_page = []
+    missing_creator = []
+    for row in rows:
+        if not row.get("license_label") and not row.get("license_url"):
+            missing_license.append(_todo_entry(row))
+        if not row.get("source_page_url"):
+            missing_source_page.append(_todo_entry(row))
+        if not row.get("creator"):
+            missing_creator.append(_todo_entry(row))
+
+    return {
+        "summary": {
+            "missingLicenseCount": len(missing_license),
+            "missingSourcePageCount": len(missing_source_page),
+            "missingCreatorCount": len(missing_creator),
+            "missingLicenseBySourceType": _counts_by_source_type(missing_license),
+            "missingSourcePageBySourceType": _counts_by_source_type(missing_source_page),
+            "missingCreatorBySourceType": _counts_by_source_type(missing_creator),
+        },
+        "missingLicense": missing_license,
+        "missingSourcePage": missing_source_page,
+        "missingCreator": missing_creator,
+    }
+
+
+def _normalize_collection_path(path: str) -> str:
+    normalized = path.strip().strip("/")
+    if not normalized:
+        raise SystemExit("Missing collection path: set --collection or LEGAL_INVENTORY_COLLECTION")
+    parts = [p for p in normalized.split("/") if p]
+    # Firestore collection paths must have an odd number of path elements.
+    if len(parts) % 2 == 0:
+        raise SystemExit(
+            f"Invalid collection path '{path}'. It must point to a collection "
+            "(odd path segments), e.g. 'legal_inventory_versions' or "
+            "'apps/wild_forager/legal_inventory_versions'."
+        )
+    return "/".join(parts)
+
+
+def _normalize_doc_id(value: str, label: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise SystemExit(f"Missing {label}.")
+    if "/" in normalized:
+        raise SystemExit(f"Invalid {label} '{value}': document IDs must not contain '/'.")
+    return normalized
+
+
 def _publish_to_firebase(
     payload: Dict[str, Any],
     project_id: str,
@@ -196,6 +275,10 @@ def _publish_to_firebase(
                 "path": payload["artifacts"]["jsonPath"],
                 "sha256": payload["artifacts"]["jsonSha256"],
             },
+            "todo": {
+                "path": payload["artifacts"]["todoPath"],
+                "sha256": payload["artifacts"]["todoSha256"],
+            },
         },
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
@@ -227,6 +310,10 @@ def main() -> int:
         "--out-json",
         default="data/legal/image_license_inventory.json",
     )
+    parser.add_argument(
+        "--out-todo-json",
+        default="data/legal/image_license_todo.json",
+    )
     parser.add_argument("--version", default=_default_version())
     parser.add_argument("--publish", action="store_true")
     parser.add_argument("--fail-on-missing-license", action="store_true")
@@ -256,6 +343,10 @@ def main() -> int:
     light_manifest = Path(args.light_manifest_json)
     out_csv = Path(args.out_csv)
     out_json = Path(args.out_json)
+    out_todo_json = Path(args.out_todo_json)
+    collection = _normalize_collection_path(args.collection)
+    latest_doc_id = _normalize_doc_id(args.latest_doc_id, "latest doc id")
+    version = _normalize_doc_id(args.version, "version")
 
     if not gbif_index.is_file():
         raise SystemExit(f"Missing file: {gbif_index}")
@@ -268,7 +359,7 @@ def main() -> int:
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     required_types = {s.strip() for s in args.required_source_type if s.strip()}
     payload: Dict[str, Any] = {
-        "version": args.version,
+        "version": version,
         "generatedAt": generated_at,
         "rowCount": len(rows),
         "stats": _stats(rows, required_types),
@@ -287,12 +378,19 @@ def main() -> int:
     payload["artifacts"]["jsonPath"] = str(out_json)
     payload["artifacts"]["jsonSha256"] = _sha256(out_json)
     out_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    todo = _build_todo_report(rows)
+    out_todo_json.parent.mkdir(parents=True, exist_ok=True)
+    out_todo_json.write_text(json.dumps(todo, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    payload["artifacts"]["todoPath"] = str(out_todo_json)
+    payload["artifacts"]["todoSha256"] = _sha256(out_todo_json)
+    out_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     print(
         "Built inventory:",
         f"rows={payload['rowCount']}",
         f"csv={out_csv}",
         f"json={out_json}",
+        f"todo={out_todo_json}",
     )
     print(
         "Quality:",
@@ -319,14 +417,14 @@ def main() -> int:
         payload=payload,
         project_id=args.project_id,
         firestore_database_id=args.firestore_database_id,
-        collection=args.collection,
-        latest_doc_id=args.latest_doc_id,
+        collection=collection,
+        latest_doc_id=latest_doc_id,
     )
     print(
         "Published to Firebase:",
         f"project={args.project_id}",
-        f"collection={args.collection}",
-        f"version={args.version}",
+        f"collection={collection}",
+        f"version={version}",
     )
     return 0
 

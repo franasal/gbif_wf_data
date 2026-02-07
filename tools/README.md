@@ -14,3 +14,4 @@ The DB step also writes `data/updates_summary.json`, which summarizes new points
 Additional tooling:
 
 - `publish_image_license_inventory.py` builds a versioned legal inventory from image manifests and can publish metadata to Firestore.
+- It also writes `data/legal/image_license_todo.json` with actionable entries missing license/source-page/creator fields.
