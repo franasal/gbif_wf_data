@@ -427,8 +427,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Download GBIF image samples for all plants.")
     parser.add_argument(
         "--resolved",
-        default="gbif_wf_data/data/plants_resolved.json",
-        help="Path to plants_resolved.json",
+        default="gbif_wf_data/data/plants_resolved_edible.json",
+        help="Path to plants_resolved_edible.json",
     )
     parser.add_argument(
         "--config",

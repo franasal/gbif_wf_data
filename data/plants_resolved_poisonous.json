@@ -1,0 +1,145 @@
+[
+  {
+    "scientificName": "Aconitum lycoctonum",
+    "de": "Wolfs-Eisenhut",
+    "taxonKey": 3033675,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Aconitum lycoctonum",
+      "scientificName": "Aconitum lycoctonum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Aethusa cynapium",
+    "de": "Hundspetersilie",
+    "taxonKey": 5371825,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Aethusa cynapium",
+      "scientificName": "Aethusa cynapium L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Arum maculatum",
+    "de": "Gefleckter Aronstab",
+    "taxonKey": 5330580,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Arum maculatum",
+      "scientificName": "Arum maculatum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Cicuta virosa",
+    "de": "Giftiger Wasserschierling",
+    "taxonKey": 5371864,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cicuta virosa",
+      "scientificName": "Cicuta virosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Colchicum autumnale",
+    "de": "Herbstzeitlose",
+    "taxonKey": 2739622,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Colchicum autumnale",
+      "scientificName": "Colchicum autumnale L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Conium maculatum",
+    "de": "Gefleckter Schierling",
+    "taxonKey": 3034807,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Conium maculatum",
+      "scientificName": "Conium maculatum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Convallaria majalis",
+    "de": "Gewöhnliches Maiglöckchen",
+    "taxonKey": 7459480,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Convallaria majalis",
+      "scientificName": "Convallaria majalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Digitalis purpurea",
+    "de": "Roter Fingerhut",
+    "taxonKey": 5414995,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Digitalis purpurea",
+      "scientificName": "Digitalis purpurea L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Equisetum palustre",
+    "de": "Sumpf-Schachtelhalm",
+    "taxonKey": 2687932,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Equisetum palustre",
+      "scientificName": "Equisetum palustre L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Juniperus sabina",
+    "de": "Sadebaum",
+    "taxonKey": 7963890,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Juniperus sabina",
+      "scientificName": "Juniperus sabina L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Taxus baccata",
+    "de": "Europäische Eibe",
+    "taxonKey": 5284517,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Taxus baccata",
+      "scientificName": "Taxus baccata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  }
+]

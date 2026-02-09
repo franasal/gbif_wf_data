@@ -2,19 +2,20 @@
 
 The GitHub Actions workflow uses these scripts:
 
-- `run_daily_update.py` to download GBIF data, update the SQLite database, and export the compact dataset.
+- `run_daily_update.py` to download GBIF data, update the SQLite database, and export the compact datasets (edible + poisonous).
 - `export_occurrences_compact.py` for the compact JSON export (invoked by `run_daily_update.py`).
 - `resolve_taxa.py` and `dwca_sqlite.py` during the database build step.
-- `publish_release_asset.py` to publish the release asset.
+- `publish_release_asset.py` to publish the release assets (edible + poisonous).
 
-Legacy helper scripts that are not part of the GitHub Actions workflow have been removed to keep this directory focused.
+Helper scripts that are not part of the GitHub Actions workflow are kept here when they support curation and release prep.
 
-The DB step also writes `data/updates_summary.json`, which summarizes new points interpreted in the current download window for the configured plant list (daily window or weekly full-range refresh).
+The DB step also writes `data/updates_summary.json` (legacy/prod combined) and `data/updates_summary_edible.json`/`data/updates_summary_poisonous.json` (split), which summarize new points interpreted in the current download window for each list (daily window or weekly full-range refresh).
 
 Additional tooling:
 
 - `publish_image_license_inventory.py` builds a versioned legal inventory from image manifests and can publish metadata to Firestore.
 - It also writes `data/legal/image_license_todo.json` with actionable entries missing license/source-page/creator fields.
+- `gbif_mark_curation_prefixes.py` renames plant folders with curation/status prefixes and updates related index/manifest metadata paths.
 
 ## Light build size tuning
 

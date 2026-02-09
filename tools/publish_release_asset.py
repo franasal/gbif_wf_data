@@ -57,7 +57,10 @@ def main() -> int:
     ap.add_argument("--notes", default="Auto-generated data export assets.", help="Release notes")
     ap.add_argument("--target", default=None, help="Target commit/branch (optional)")
 
-    ap.add_argument("--dataset", default="data/occurrences_compact.json.gz", help="Dataset asset path")
+    ap.add_argument("--dataset", default=None, help="Legacy dataset asset path (compat)")
+    ap.add_argument("--dataset-legacy", default="data/occurrences_compact.json.gz", help="Legacy dataset asset path")
+    ap.add_argument("--dataset-edible", default="data/occurrences_compact_edible.json.gz", help="Edible dataset asset path")
+    ap.add_argument("--dataset-poisonous", default="data/occurrences_compact_poisonous.json.gz", help="Poisonous dataset asset path")
     ap.add_argument("--stats", default="data/stats_summary.json", help="Stats asset path (optional)")
     ap.add_argument("--thumbs-pack", default=None, help="Optional thumbs pack zip (e.g. data/thumbs_pack_latest.zip)")
 
@@ -75,11 +78,15 @@ def main() -> int:
     else:
         print(f"Release '{tag}' exists, updating assets.", flush=True)
 
-    dataset = Path(args.dataset)
+    legacy_path = Path(args.dataset) if args.dataset else Path(args.dataset_legacy)
+    dataset_edible = Path(args.dataset_edible)
+    dataset_poisonous = Path(args.dataset_poisonous)
     stats = Path(args.stats) if args.stats else None
     thumbs = Path(args.thumbs_pack) if args.thumbs_pack else None
 
-    upload_asset(tag, dataset, clobber=clobber)
+    upload_asset(tag, legacy_path, clobber=clobber)
+    upload_asset(tag, dataset_edible, clobber=clobber)
+    upload_asset(tag, dataset_poisonous, clobber=clobber)
     if stats:
         upload_asset(tag, stats, clobber=clobber)
     if thumbs:

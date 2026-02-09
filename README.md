@@ -19,13 +19,14 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 
 | File | Purpose |
 | --- | --- |
-| `data/names_de.json` | Scientific name → German/common name mapping. This is the authoritative whitelist of plants to include. |
+| `data/names_edible.json` | Scientific name → German/common name mapping for edible plants (authoritative edible list). |
+| `data/names_poisonous.json` | Scientific name → German/common name mapping for poisonous plants (authoritative poisonous list). |
 | `data/gbif_download_config.json` | Country, (optional) year range, rolling window days, daily window length, weekly refresh weekday, export sampling parameters, and gzip settings. |
 
 ### 2) Name resolution (`tools/resolve_taxa.py`)
 
-- Reads `data/names_de.json` and queries the GBIF species match API.
-- Writes `data/plants_resolved.json` with taxon keys + match metadata.
+- Reads `data/names_edible.json` and `data/names_poisonous.json`, and queries the GBIF species match API.
+- Writes `data/plants_resolved_edible.json` and `data/plants_resolved_poisonous.json` with taxon keys + match metadata.
 - Writes `data/taxon_cache.json` to avoid re-querying unchanged names.
 
 **Output shape (example):**
@@ -69,7 +70,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 - If `rolling_window_days` is set, the pipeline can delete rows older than the cutoff date after each load.
 - Pruning is date-based (eventDate or year/month/day) and can be skipped with `--no-prune`.
 
-### 5) Daily updates summary (`data/updates_summary.json`)
+### 5) Daily updates summary (`data/updates_summary_edible.json`, `data/updates_summary_poisonous.json`)
 
 - Immediately after extraction, the pipeline scans the DWCA `occurrence.txt`.
 - Counts how many points were **newly interpreted in the current window** (daily by default, full-range on weekly refresh), filtered to the whitelist.
@@ -95,7 +96,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 
 - Uses the whitelist as **source of truth** (includes all configured plants).
 - Samples newest points per geohash cell per plant, with caps.
-- Outputs `data/occurrences_compact.json.gz` with:
+- Outputs `data/occurrences_compact_edible.json.gz` and `data/occurrences_compact_poisonous.json.gz` with:
   - `region` (name + center)
   - `plants` (per-plant stats + sampled points)
   - `meta` (export parameters)
@@ -138,7 +139,7 @@ The pipeline is orchestrated by GitHub Actions and driven by the scripts in `too
 
 ### 7) Release publishing (`tools/publish_release_asset.py`)
 
-- Publishes `data/occurrences_compact.json.gz` as a Release asset on tag `latest`.
+- Publishes `data/occurrences_compact.json.gz` (legacy/prod) plus `data/occurrences_compact_edible.json.gz` and `data/occurrences_compact_poisonous.json.gz` (dev split) as Release assets on tag `latest`.
 
 ---
 
@@ -149,13 +150,13 @@ The workflow runs in two jobs:
 1. **build_db** (db-only):
    - Resolves names (cached by hash if unchanged).
    - Requests + downloads DWCA using a daily window (or weekly full-range refresh window).
-   - Generates `updates_summary.json`.
+   - Generates `updates_summary_edible.json` and `updates_summary_poisonous.json`.
    - Loads `dwca.sqlite` and uploads it as an artifact.
    - Commits state/cache/output files back to the repo.
 
 2. **export_and_release** (export-only):
    - Downloads the DB artifact.
-   - Runs the exporter to create `occurrences_compact.json.gz`.
+   - Runs the exporter to create `occurrences_compact_edible.json.gz` and `occurrences_compact_poisonous.json.gz`.
    - Publishes the Release asset.
 
 ---
@@ -165,10 +166,10 @@ The workflow runs in two jobs:
 ### ✅ Output-preserving optimizations
 
 - **Name resolution caching:**
-  - Added a SHA-256 hash of `names_de.json` to `gbif_state.json` so we can skip resolver calls when the list is unchanged.
+  - Added SHA-256 hashes of `names_edible.json` and `names_poisonous.json` to `gbif_state.json` so we can skip resolver calls when the lists are unchanged.
 
 - **Whitelist-as-source-of-truth:**
-  - The export script now includes all names from `names_de.json` when a whitelist is provided (no `top_n` slicing).
+  - The export script now includes all names from the whitelist when a `names_*.json` is provided (no `top_n` slicing).
 
 - **Batch taxonKey lookup:**
   - Exporter now fetches taxon keys with one grouped query instead of per-species queries.
@@ -187,7 +188,7 @@ The workflow runs in two jobs:
 
 ### ✅ New daily updates summary
 
-- The pipeline now writes `data/updates_summary.json`, which reports newly interpreted points in the current download window for configured plants.
+- The pipeline now writes `data/updates_summary_edible.json` and `data/updates_summary_poisonous.json`, which report newly interpreted points in the current download window for each list.
 
 ### ✅ Removed legacy/unwired scripts
 
@@ -199,11 +200,17 @@ The workflow runs in two jobs:
 
 | File | Description |
 | --- | --- |
-| `data/plants_resolved.json` | Name resolution results with taxon keys. |
+| `data/plants_resolved.json` | Name resolution results for legacy/prod combined list. |
+| `data/plants_resolved_edible.json` | Name resolution results for edible plants. |
+| `data/plants_resolved_poisonous.json` | Name resolution results for poisonous plants. |
 | `data/taxon_cache.json` | Cached GBIF match responses. |
 | `data/dwca.sqlite` | SQLite database of occurrences. |
-| `data/occurrences_compact.json.gz` | Compact export for visualization/use. |
-| `data/updates_summary.json` | Daily counts of newly interpreted points. |
+| `data/occurrences_compact.json.gz` | Compact export for legacy/prod (combined). |
+| `data/occurrences_compact_edible.json.gz` | Compact export for edible plants. |
+| `data/occurrences_compact_poisonous.json.gz` | Compact export for poisonous plants. |
+| `data/updates_summary.json` | Daily counts of newly interpreted points (legacy/prod combined). |
+| `data/updates_summary_edible.json` | Daily counts of newly interpreted edible points. |
+| `data/updates_summary_poisonous.json` | Daily counts of newly interpreted poisonous points. |
 | `data/changes_summary.json` | Field-level change summary vs. existing DB (if enabled). |
 
 ---
