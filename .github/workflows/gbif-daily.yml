@@ -67,10 +67,24 @@ jobs:
       
           for file in \
             data/gbif_state.json \
+            data/names_edible.json \
+            data/names_poisonous.json \
+            data/names_prod.json \
+            data/names_de.json \
             data/plants_resolved.json \
+            data/plants_resolved_edible.json \
+            data/plants_resolved_poisonous.json \
             data/taxon_cache.json \
             data/occurrences_compact.json.gz \
+            data/occurrences_compact_edible.json.gz \
+            data/occurrences_compact_poisonous.json.gz \
             data/updates_summary.json; do
+            if [ -f "data/updates_summary_edible.json" ]; then
+              git add data/updates_summary_edible.json
+            fi
+            if [ -f "data/updates_summary_poisonous.json" ]; then
+              git add data/updates_summary_poisonous.json
+            fi
             if [ -f "$file" ]; then
               git add "$file"
             fi
@@ -126,5 +140,18 @@ jobs:
           python -u tools/publish_release_asset.py \
             --tag latest \
             --title "Latest GBIF export" \
-            --notes "Auto-generated data export. Assets: occurrences_compact.json.gz (+ optional stats/thumbs)." \
-            --dataset data/occurrences_compact.json.gz
+            --notes "Auto-generated data export. Assets: occurrences_compact.json.gz + split datasets." \
+            --dataset data/occurrences_compact.json.gz \
+            --dataset-edible data/occurrences_compact_edible.json.gz \
+            --dataset-poisonous data/occurrences_compact_poisonous.json.gz
+
+      - name: Publish / update Release asset (latest-dev)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -u tools/publish_release_asset.py \
+            --tag latest-dev \
+            --title "Latest GBIF export (dev split)" \
+            --notes "Auto-generated data export (split). Assets: occurrences_compact_edible.json.gz + occurrences_compact_poisonous.json.gz." \
+            --dataset-edible data/occurrences_compact_edible.json.gz \
+            --dataset-poisonous data/occurrences_compact_poisonous.json.gz
