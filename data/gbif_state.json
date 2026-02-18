@@ -1,14 +1,14 @@
 {
   "last_interpreted_since": "2026-01-01",
   "pending": {
-    "download_key": "0023519-260208012135463",
-    "since": "2026-02-16",
-    "requested_at": "2026-02-17T04:52:40Z",
-    "window_days": 1,
-    "window_label": "daily"
+    "download_key": "0026479-260208012135463",
+    "since": "2023-02-19",
+    "requested_at": "2026-02-18T04:53:35Z",
+    "window_days": 1095,
+    "window_label": "weekly"
   },
   "names_hash": "2e4046008416169403dc5f945e54865d22dfbf0f572dd31b06fd74772fb0b404",
-  "last_weekly_refresh": "2026-02-11",
+  "last_weekly_refresh": "2026-02-18",
   "names_edible_hash": "3687aea0e69b9f1651ac97b43824609b829bfc2d38d3e01103cab9b7acb4a4bc",
   "names_poisonous_hash": "2e6f7708435662b2bc0b62ff963a0eccea049e6ed50fc593879373f2b68f5230"
 }
