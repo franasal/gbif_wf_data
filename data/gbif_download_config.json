@@ -6,7 +6,7 @@
   "window_filter_key": "EVENT_DATE",
   "rolling_window_days": 1095,
 
-  "daily_window_days": 1095,
+  "daily_window_days": 1,
   "weekly_refresh_weekday": 2,
 
   "top_n": 250,
