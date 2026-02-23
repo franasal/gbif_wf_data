@@ -6,6 +6,7 @@ import os
 import sqlite3
 import sys
 import traceback
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -78,7 +79,31 @@ def load_name_map(path: Optional[str]) -> Dict[str, str]:
         data = json.load(f)
     if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
         return data
-    raise RuntimeError("names JSON must be a dict: { 'Scientific name': 'German name', ... }")
+    if isinstance(data, dict):
+        out: Dict[str, str] = {}
+        for k, v in data.items():
+            if not isinstance(v, dict):
+                continue
+            sci = v.get("scientificName") or v.get("scientific_name")
+            de = v.get("de") or v.get("commonName") or v.get("common_name") or ""
+            if isinstance(sci, str) and sci.strip():
+                out[sci.strip()] = str(de or "").strip()
+        if out:
+            return out
+    if isinstance(data, list):
+        out: Dict[str, str] = {}
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            sci = item.get("scientificName") or item.get("scientific_name")
+            de = item.get("de") or item.get("commonName") or item.get("common_name") or ""
+            if isinstance(sci, str) and sci.strip():
+                out[sci.strip()] = str(de or "").strip()
+        if out:
+            return out
+    raise RuntimeError(
+        "names JSON must be legacy {scientificName: common} or objects containing scientificName (+ optional de/commonName)."
+    )
 
 
 def load_images_index(path: Optional[str]) -> Dict[str, dict]:
@@ -153,6 +178,38 @@ def write_output(path: str, obj: dict, gzip_enabled: bool) -> str:
         return path
 
 
+def _source_label(dataset_name: Optional[str], publisher: Optional[str], references_url: Optional[str]) -> Optional[str]:
+    hay = " ".join(
+        [
+            (dataset_name or ""),
+            (publisher or ""),
+            (references_url or ""),
+        ]
+    ).lower()
+    if not hay:
+        return None
+    if "inaturalist" in hay:
+        return "iNaturalist"
+    if "naturgucker" in hay and "nabu" in hay:
+        return "NABU naturgucker"
+    if "naturgucker" in hay:
+        return "naturgucker"
+    if "observation.org" in hay:
+        return "Observation.org"
+    if "artportalen" in hay:
+        return "Artportalen"
+    if "gbif.org" in hay:
+        return "GBIF"
+    return (dataset_name or publisher or None)
+
+
+def _trim_trailing_nulls(values: List[object]) -> List[object]:
+    out = list(values)
+    while out and out[-1] is None:
+        out.pop()
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="Export sparse occurrences JSON: newest N per cell, hotspot-capped.")
     ap.add_argument("--db", required=True)
@@ -187,9 +244,13 @@ def main():
         col_taxon = resolve_col(cols, ["taxonKey", "taxon_key"], required=False)
         col_lat = resolve_col(cols, ["lat", "decimalLatitude", "latitude"])
         col_lon = resolve_col(cols, ["lon", "decimalLongitude", "longitude"])
+        col_gbif_id = resolve_col(cols, ["gbifID", "gbifId", "id"], required=False)
         col_year = resolve_col(cols, ["year"], required=False)
         col_month = resolve_col(cols, ["month"], required=False)
         col_country = resolve_col(cols, ["countryCode", "country_code", "country"], required=False)
+        col_dataset_name = resolve_col(cols, ["datasetName"], required=False)
+        col_publisher = resolve_col(cols, ["publisher"], required=False)
+        col_references = resolve_col(cols, ["referencesUrl", "references"], required=False)
 
         name_map = load_name_map(args.names_json)
         images_map = load_images_index(args.images_index)
@@ -290,21 +351,45 @@ def main():
         last_obs_map: Dict[str, Optional[Tuple[int, int]]] = {s: None for s in top_species}
 
         kept_points: Dict[str, List[list]] = {s: [] for s in top_species}
+        source_counts: Dict[str, Dict[str, int]] = {s: defaultdict(int) for s in top_species}
         done_species = set()
 
         # 3) Stream newest -> oldest once, keep newest per cell per plant
         year_expr = col_year if col_year else "0"
         month_expr = col_month if col_month else "0"
+        available_tables = set(list_tables(con))
+        can_join_media = "occ_media" in available_tables and bool(col_gbif_id)
+
+        select_cols = [
+            f"o.{col_sci} AS sci",
+            f"o.{col_lat} AS lat",
+            f"o.{col_lon} AS lon",
+            f"o.{year_expr} AS y",
+            f"o.{month_expr} AS m",
+        ]
+        if col_gbif_id:
+            select_cols.append(f"o.{col_gbif_id} AS gbif_id")
+        if col_dataset_name:
+            select_cols.append(f"o.{col_dataset_name} AS dataset_name")
+        if col_publisher:
+            select_cols.append(f"o.{col_publisher} AS publisher")
+        if col_references:
+            select_cols.append(f"o.{col_references} AS refs_url")
+        if can_join_media:
+            select_cols.append("m.imageUrl AS media_image_url")
+            select_cols.append("m.sourcePageUrl AS media_source_page")
+        else:
+            select_cols.append("NULL AS media_image_url")
+            select_cols.append("NULL AS media_source_page")
+
+        media_join_sql = f"LEFT JOIN occ_media m ON m.gbifID = o.{col_gbif_id}" if can_join_media else ""
 
         q_stream = f"""
           SELECT
-            o.{col_sci} AS sci,
-            o.{col_lat} AS lat,
-            o.{col_lon} AS lon,
-            o.{year_expr} AS y,
-            o.{month_expr} AS m
+            {", ".join(select_cols)}
           FROM {table} o
           JOIN _wanted_species w ON w.sci = o.{col_sci}
+          {media_join_sql}
           {where_sql}
           ORDER BY o.{year_expr} DESC, o.{month_expr} DESC
         """
@@ -355,7 +440,40 @@ def main():
                 done_species.add(sci)
                 continue
 
-            pts.append([latf, lonf, yi, mi])
+            gbif_id_val = r["gbif_id"] if col_gbif_id else None
+            try:
+                gbif_id_num = int(gbif_id_val) if gbif_id_val is not None else None
+            except Exception:
+                gbif_id_num = None
+
+            dataset_name = r["dataset_name"] if col_dataset_name else None
+            publisher = r["publisher"] if col_publisher else None
+            refs_url = r["refs_url"] if col_references else None
+            media_image_url = r["media_image_url"]
+            media_source_page = r["media_source_page"]
+            source_label = _source_label(
+                str(dataset_name) if dataset_name is not None else None,
+                str(publisher) if publisher is not None else None,
+                str(refs_url) if refs_url is not None else None,
+            )
+            if source_label:
+                source_counts[sci][source_label] += 1
+
+            point = _trim_trailing_nulls(
+                [
+                    latf,
+                    lonf,
+                    yi,
+                    mi,
+                    gbif_id_num,
+                    source_label,
+                    (str(dataset_name) if dataset_name else None),
+                    (str(media_image_url) if media_image_url else None),
+                    (str(media_source_page) if media_source_page else None),
+                    (str(refs_url) if refs_url else None),
+                ]
+            )
+            pts.append(point)
             per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
 
             if yi is not None:
@@ -404,6 +522,7 @@ def main():
                 "bbox": bbox_map[sci] if bbox_map[sci][0] is not None else None,
                 "points": pts,
                 "sampled_total": len(pts),
+                "observation_sources": dict(sorted(source_counts[sci].items())),
             }
 
             if sci in images_map:
@@ -426,6 +545,18 @@ def main():
                 "keep_per_cell": keep_per_cell,
                 "max_points_per_plant": max_points,
                 "scanned_rows": scanned,
+                "points_schema": [
+                    "lat",
+                    "lon",
+                    "year",
+                    "month",
+                    "gbifID",
+                    "source_label",
+                    "dataset_name",
+                    "media_image_url",
+                    "media_source_page_url",
+                    "occurrence_reference_url",
+                ],
             },
         }
 

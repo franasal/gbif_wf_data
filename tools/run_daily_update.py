@@ -36,6 +36,23 @@ def save_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def whitelist_to_name_map(data) -> dict[str, str]:
+    if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
+        return {str(k).strip(): str(v).strip() for k, v in data.items() if str(k).strip()}
+
+    out: dict[str, str] = {}
+    items = data.values() if isinstance(data, dict) else data
+    if isinstance(items, list) or hasattr(items, "__iter__"):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            sci = item.get("scientificName") or item.get("scientific_name")
+            de = item.get("de") or item.get("commonName") or item.get("common_name") or ""
+            if isinstance(sci, str) and sci.strip():
+                out[sci.strip()] = str(de or "").strip()
+    return out
+
+
 def run(cmd: list[str], env: dict | None = None) -> None:
     print("RUN:", " ".join(cmd), flush=True)
     subprocess.check_call(cmd, env=env)
@@ -88,6 +105,7 @@ def summarize_updates(
     window_label: str,
     download_key: str,
     interpreted_since: str,
+    window_field: str = "LAST_INTERPRETED",
 ) -> None:
     import csv
 
@@ -98,6 +116,8 @@ def summarize_updates(
         "generated_at": utc_now_iso(),
         "download_key": download_key,
         "interpreted_since": interpreted_since,
+        "window_since": window_start,
+        "window_field": window_field,
         "window_start": window_start,
         "window_days": window_days,
         "window_label": window_label,
@@ -120,9 +140,13 @@ def summarize_updates(
             if not sci or sci not in allowed_scientific_names:
                 continue
 
-            interpreted = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
-            interpreted_date = parse_iso_date(interpreted or "")
-            if interpreted_date is None or interpreted_date < window_start:
+            if (window_field or "").upper() == "EVENT_DATE":
+                raw_date = resolve_first(row, ["eventDate"])
+            else:
+                raw_date = resolve_first(row, ["lastInterpreted", "last_interpreted", "modified", "lastModified"])
+
+            row_date = parse_iso_date(raw_date or "")
+            if row_date is None or row_date < window_start:
                 continue
 
             summary["total_new_points"] += 1
@@ -162,7 +186,8 @@ def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: s
     if y_to is not None:
         preds.append({"type": "lessThanOrEquals", "key": "YEAR", "value": str(int(y_to))})
 
-    preds.append({"type": "greaterThanOrEquals", "key": "LAST_INTERPRETED", "value": interpreted_since})
+    window_key = str(cfg.get("window_filter_key") or "EVENT_DATE").upper()
+    preds.append({"type": "greaterThanOrEquals", "key": window_key, "value": interpreted_since})
 
     return {"type": "and", "predicates": preds}
 
@@ -333,8 +358,10 @@ def main() -> None:
     cfg = load_json(cfg_path, {})
     state = load_json(state_path, {"last_interpreted_since": utc_today_date()})
 
-    edible_map = load_json(names_edible_path, {})
-    poisonous_map = load_json(names_poisonous_path, {})
+    edible_raw = load_json(names_edible_path, {})
+    poisonous_raw = load_json(names_poisonous_path, {})
+    edible_map = whitelist_to_name_map(edible_raw)
+    poisonous_map = whitelist_to_name_map(poisonous_raw)
     edible_names = set(edible_map.keys())
     poisonous_names = set(poisonous_map.keys())
     overlap = sorted(edible_names & poisonous_names)
@@ -419,8 +446,9 @@ def main() -> None:
 
         since, window_end, window_days, weekly_due = compute_download_window(state, cfg)
         window_label = "weekly" if weekly_due else "daily"
+        window_filter_key = str(cfg.get("window_filter_key") or "EVENT_DATE").upper()
         print(
-            f"Delta filter: LAST_INTERPRETED >= {since} ({window_label} window_days={window_days})",
+            f"Window filter: {window_filter_key} >= {since} ({window_label} window_days={window_days})",
             flush=True,
         )
 
@@ -472,6 +500,7 @@ def main() -> None:
             window_label=window_label,
             download_key=key,
             interpreted_since=since,
+            window_field=window_filter_key,
         )
         summarize_updates(
             occ_path=occ_path,
@@ -482,6 +511,7 @@ def main() -> None:
             window_label=window_label,
             download_key=key,
             interpreted_since=since,
+            window_field=window_filter_key,
         )
         summarize_updates(
             occ_path=occ_path,
@@ -492,6 +522,7 @@ def main() -> None:
             window_label=window_label,
             download_key=key,
             interpreted_since=since,
+            window_field=window_filter_key,
         )
 
         load_cmd = [

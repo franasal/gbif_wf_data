@@ -23,6 +23,39 @@ def find_occurrence(dwca_dir: str) -> str:
     txts.sort(key=lambda x: os.path.getsize(x), reverse=True)
     return txts[0]
 
+
+def find_optional_multimedia(dwca_dir: str) -> str | None:
+    candidates = [
+        os.path.join(dwca_dir, "multimedia.txt"),
+        os.path.join(dwca_dir, "Multimedia.txt"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    for name in os.listdir(dwca_dir):
+        if name.lower() == "multimedia.txt":
+            p = os.path.join(dwca_dir, name)
+            if os.path.isfile(p):
+                return p
+    return None
+
+
+def _table_columns(con, table: str) -> set[str]:
+    rows = con.execute(f"PRAGMA table_info({table})").fetchall()
+    names = set()
+    for r in rows:
+        try:
+            names.add(r["name"])
+        except Exception:
+            names.add(r[1])
+    return names
+
+
+def _ensure_column(con, table: str, name: str, ddl_type: str) -> None:
+    cols = _table_columns(con, table)
+    if name not in cols:
+        con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}")
+
 def init_db(db_path: str):
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
@@ -45,6 +78,9 @@ def init_db(db_path: str):
       stateProvince TEXT,
       basisOfRecord TEXT,
       datasetKey TEXT,
+      datasetName TEXT,
+      publisher TEXT,
+      referencesUrl TEXT,
       license TEXT,
       lat REAL,
       lon REAL,
@@ -59,6 +95,23 @@ def init_db(db_path: str):
     );
     """)
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS occ_media (
+      gbifID TEXT PRIMARY KEY,
+      imageUrl TEXT,
+      mediaType TEXT,
+      sourcePageUrl TEXT,
+      license TEXT,
+      creator TEXT,
+      title TEXT
+    );
+    """)
+
+    # Migrate older DBs in place.
+    _ensure_column(con, "occ", "datasetName", "TEXT")
+    _ensure_column(con, "occ", "publisher", "TEXT")
+    _ensure_column(con, "occ", "referencesUrl", "TEXT")
+
     # Helpful indexes for export + stats
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_latlon ON occ(lat, lon);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_yearmonth ON occ(year DESC, month DESC);")
@@ -67,6 +120,7 @@ def init_db(db_path: str):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_species_only ON occ(species);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_species_yearmonth ON occ(species, year DESC, month DESC);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_state ON occ(stateProvince);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_occ_dataset_name ON occ(datasetName);")
     con.commit()
     return con
 
@@ -117,6 +171,92 @@ def _compute_field_changes(incoming) -> dict:
         if old != new:
             changed[key] = {"from": old, "to": new}
     return changed
+
+
+def _pick_col(row: dict, keys: list[str]):
+    for k in keys:
+        if k in row and row.get(k) not in (None, ""):
+            return row.get(k)
+    return None
+
+
+def _looks_like_image(media_type, fmt, identifier) -> bool:
+    s = " ".join(
+        [
+            str(media_type or "").lower(),
+            str(fmt or "").lower(),
+            str(identifier or "").lower(),
+        ]
+    )
+    return any(t in s for t in ["image", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".tif", ".tiff"])
+
+
+def load_multimedia(dwca_dir: str, con) -> int:
+    path = find_optional_multimedia(dwca_dir)
+    if not path:
+        print("No multimedia.txt found; skipping media load.")
+        return 0
+
+    print("Using multimedia:", path)
+    cur = con.cursor()
+    loaded = 0
+    batch = []
+
+    with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            gbif_id = _pick_col(row, ["gbifID", "coreid", "coreId", "id"])
+            if gbif_id is None:
+                continue
+            gbif_id = str(gbif_id).strip()
+            if not gbif_id:
+                continue
+
+            identifier = _pick_col(row, ["identifier", "accessURI", "accessUri"])
+            refs = _pick_col(row, ["references", "source", "sourcePage", "uri"])
+            media_type = _pick_col(row, ["type", "dc:type", "mediaType"])
+            fmt = _pick_col(row, ["format", "dc:format"])
+            if not _looks_like_image(media_type, fmt, identifier):
+                continue
+
+            batch.append(
+                (
+                    gbif_id,
+                    (str(identifier).strip() if identifier is not None else None),
+                    (str(media_type).strip() if media_type is not None else None),
+                    (str(refs).strip() if refs is not None else None),
+                    (_pick_col(row, ["license", "dcterms:license"])),
+                    (_pick_col(row, ["creator", "dcterms:creator"])),
+                    (_pick_col(row, ["title", "dcterms:title"])),
+                )
+            )
+            loaded += 1
+
+            if len(batch) >= 2000:
+                cur.executemany(
+                    """
+                    INSERT OR IGNORE INTO occ_media
+                    (gbifID, imageUrl, mediaType, sourcePageUrl, license, creator, title)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    batch,
+                )
+                con.commit()
+                batch = []
+
+    if batch:
+        cur.executemany(
+            """
+            INSERT OR IGNORE INTO occ_media
+            (gbifID, imageUrl, mediaType, sourcePageUrl, license, creator, title)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            batch,
+        )
+        con.commit()
+
+    print("Loaded media rows (image candidates):", loaded)
+    return loaded
 
 def load(
     dwca_dir: str,
@@ -174,6 +314,9 @@ def load(
 
             basisOfRecord = row.get("basisOfRecord")
             datasetKey = row.get("datasetKey")
+            datasetName = row.get("datasetName")
+            publisher = row.get("publisher") or row.get("publishingOrg")
+            referencesUrl = row.get("references")
             license_ = row.get("license")
 
             lat = to_float(row.get("decimalLatitude"))
@@ -189,7 +332,8 @@ def load(
                     existing = cur.execute(
                         """
                         SELECT scientificName, species, taxonKey, eventDate, year, month, day,
-                               countryCode, stateProvince, basisOfRecord, datasetKey, license, lat, lon
+                               countryCode, stateProvince, basisOfRecord, datasetKey, datasetName, publisher, referencesUrl,
+                               license, lat, lon
                         FROM occ
                         WHERE gbifID = ?
                         """,
@@ -210,6 +354,9 @@ def load(
                     "stateProvince": (_norm_str(existing["stateProvince"]) if existing else None, _norm_str(stateProvince)),
                     "basisOfRecord": (_norm_str(existing["basisOfRecord"]) if existing else None, _norm_str(basisOfRecord)),
                     "datasetKey": (_norm_str(existing["datasetKey"]) if existing else None, _norm_str(datasetKey)),
+                    "datasetName": (_norm_str(existing["datasetName"]) if existing else None, _norm_str(datasetName)),
+                    "publisher": (_norm_str(existing["publisher"]) if existing else None, _norm_str(publisher)),
+                    "referencesUrl": (_norm_str(existing["referencesUrl"]) if existing else None, _norm_str(referencesUrl)),
                     "license": (_norm_str(existing["license"]) if existing else None, _norm_str(license_)),
                     "lat": (_norm_float(existing["lat"]) if existing else None, _norm_float(lat)),
                     "lon": (_norm_float(existing["lon"]) if existing else None, _norm_float(lon)),
@@ -230,7 +377,7 @@ def load(
                 gbifID, scientificName, species, taxonKey,
                 eventDate, year, month, day,
                 countryCode, stateProvince,
-                basisOfRecord, datasetKey, license_,
+                basisOfRecord, datasetKey, datasetName, publisher, referencesUrl, license_,
                 lat, lon, raw_tsv
             ))
 
@@ -242,8 +389,8 @@ def load(
                 cur.executemany("""
                 INSERT OR REPLACE INTO occ
                 (gbifID, scientificName, species, taxonKey, eventDate, year, month, day, countryCode, stateProvince,
-                 basisOfRecord, datasetKey, license, lat, lon, raw_tsv)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 basisOfRecord, datasetKey, datasetName, publisher, referencesUrl, license, lat, lon, raw_tsv)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, batch)
                 con.commit()
                 batch = []
@@ -253,10 +400,13 @@ def load(
             cur.executemany("""
             INSERT OR REPLACE INTO occ
             (gbifID, scientificName, species, taxonKey, eventDate, year, month, day, countryCode, stateProvince,
-             basisOfRecord, datasetKey, license, lat, lon, raw_tsv)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             basisOfRecord, datasetKey, datasetName, publisher, referencesUrl, license, lat, lon, raw_tsv)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, batch)
             con.commit()
+
+    # Populate best-effort media table after occurrences are loaded.
+    load_multimedia(dwca_dir, con)
 
     con.close()
     print("Done. Rows:", n, "DB:", db_path)

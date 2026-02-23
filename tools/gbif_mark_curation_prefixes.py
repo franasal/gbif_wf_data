@@ -8,15 +8,18 @@ import re
 from pathlib import Path
 
 
-ROOT = Path("assets/plant_images/gbif_samples")
+# Resolve paths relative to the repository root so the script works
+# regardless of the current working directory.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT / "assets" / "plant_images" / "gbif_samples"
 INDEX_JSON = ROOT / "index.json"
 INDEX_CSV = ROOT / "index.csv"
 PARTIAL_MANIFEST = ROOT / "partial_manifest.json"
 CURATED_PLANTS = ROOT / "curated_plants.json"
 
 POISONOUS_FILES = [
-    Path("assets/data/poisonous/en.json"),
-    Path("assets/data/poisonous/de.json"),
+    REPO_ROOT / "assets" / "data" / "poisonous" / "en.json",
+    REPO_ROOT / "assets" / "data" / "poisonous" / "de.json",
 ]
 
 REVIEWED_MIN = 5

@@ -21,6 +21,45 @@ def save_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def parse_names_input(data: Any) -> List[Dict[str, Any]]:
+    entries: List[Dict[str, Any]] = []
+    if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
+        for latin, common in data.items():
+            entries.append({"scientificName": str(latin), "de": str(common), "taxonKey": None})
+        return entries
+
+    if isinstance(data, dict):
+        iterable = data.items()
+        for key, value in iterable:
+            if not isinstance(value, dict):
+                continue
+            sci = value.get("scientificName") or value.get("scientific_name")
+            common = value.get("de") or value.get("commonName") or value.get("common_name") or ""
+            tk = value.get("taxonKey", key)
+            try:
+                tk = int(tk) if tk is not None else None
+            except Exception:
+                tk = None
+            entries.append({"scientificName": sci, "de": common, "taxonKey": tk})
+        return entries
+
+    if isinstance(data, list):
+        for value in data:
+            if not isinstance(value, dict):
+                continue
+            sci = value.get("scientificName") or value.get("scientific_name")
+            common = value.get("de") or value.get("commonName") or value.get("common_name") or ""
+            tk = value.get("taxonKey")
+            try:
+                tk = int(tk) if tk is not None else None
+            except Exception:
+                tk = None
+            entries.append({"scientificName": sci, "de": common, "taxonKey": tk})
+        return entries
+
+    return entries
+
+
 def gbif_match(name: str, kingdom: str = "Plantae", rank: str = "SPECIES", strict: bool = True) -> Dict[str, Any]:
     params = {
         "name": name,
@@ -57,22 +96,36 @@ def main():
     out_path = Path(args.out)
     cache_path = Path(args.cache)
 
-    name_map: Dict[str, str] = load_json(names_path, {})
-    if not isinstance(name_map, dict):
-        raise SystemExit("--names must be a JSON dict { 'Latin name': 'Common name', ... }")
+    names_raw = load_json(names_path, {})
+    entries = parse_names_input(names_raw)
+    if not entries:
+        raise SystemExit(
+            "--names must be legacy {latin: common} or objects containing scientificName (+ optional taxonKey/de)."
+        )
 
     cache: Dict[str, Any] = load_json(cache_path, {})
     out: List[Dict[str, Any]] = []
 
     unresolved: List[Tuple[str, str]] = []
 
-    for latin, common in sorted(name_map.items(), key=lambda kv: kv[0].lower()):
-        latin = (latin or "").strip()
-        common = (common or "").strip()
+    for entry in sorted(entries, key=lambda x: str(x.get("scientificName") or "").lower()):
+        latin = str(entry.get("scientificName") or "").strip()
+        common = str(entry.get("de") or "").strip()
+        preset_taxon = entry.get("taxonKey")
         if not latin:
             continue
 
-        if latin in cache:
+        if preset_taxon is not None:
+            j = {
+                "usageKey": int(preset_taxon),
+                "matchType": "EXACT",
+                "confidence": 100,
+                "canonicalName": latin,
+                "scientificName": latin,
+                "rank": "SPECIES",
+                "status": "ACCEPTED",
+            }
+        elif latin in cache:
             j = cache[latin]
         else:
             j = gbif_match(latin, strict=not args.allow_fuzzy)
@@ -80,7 +133,7 @@ def main():
             time.sleep(args.sleep)
 
         usage = j.get("usageKey")
-        ok = score_ok(j) if not args.allow_fuzzy else bool(usage)
+        ok = True if preset_taxon is not None else (score_ok(j) if not args.allow_fuzzy else bool(usage))
 
         item = {
             "scientificName": latin,

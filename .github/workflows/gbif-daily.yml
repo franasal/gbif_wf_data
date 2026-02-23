@@ -140,10 +140,12 @@ jobs:
           python -u tools/publish_release_asset.py \
             --tag latest \
             --title "Latest GBIF export" \
-            --notes "Auto-generated data export. Assets: occurrences_compact.json.gz + split datasets." \
+            --notes "Auto-generated data export. Assets: compact legacy + split datasets + light packs." \
             --dataset data/occurrences_compact.json.gz \
             --dataset-edible data/occurrences_compact_edible.json.gz \
-            --dataset-poisonous data/occurrences_compact_poisonous.json.gz
+            --dataset-poisonous data/occurrences_compact_poisonous.json.gz \
+            --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
+            --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip
 
       - name: Publish / update Release asset (latest-dev)
         env:
@@ -152,6 +154,8 @@ jobs:
           python -u tools/publish_release_asset.py \
             --tag latest-dev \
             --title "Latest GBIF export (dev split)" \
-            --notes "Auto-generated data export (split). Assets: occurrences_compact_edible.json.gz + occurrences_compact_poisonous.json.gz." \
+            --notes "Auto-generated data export (split + light packs)." \
             --dataset-edible data/occurrences_compact_edible.json.gz \
-            --dataset-poisonous data/occurrences_compact_poisonous.json.gz
+            --dataset-poisonous data/occurrences_compact_poisonous.json.gz \
+            --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
+            --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip
