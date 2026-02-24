@@ -70,6 +70,11 @@ jobs:
           # from the explicit allowlist below.
           git add -u data
 
+          # Keep the SQLite checkpoint out of git commits (it is uploaded as an artifact).
+          # Some runs also generate an untracked changes summary used only for logs.
+          git restore --staged --worktree data/dwca.sqlite || true
+          rm -f data/changes_summary.json || true
+
           # Stage generated outputs that may be newly created in a fresh checkout.
           for file in \
             data/gbif_state.json \
@@ -102,9 +107,9 @@ jobs:
           git commit -m "chore(state): daily GBIF refresh"
       
           # Sync with remote to avoid "fetch first"
-          # DB file is uploaded as an Actions artifact above; keep the git worktree clean
-          # so rebase can proceed even if the DB is generated locally in this job.
-          rm -f data/dwca.sqlite || true
+          # Ensure generated local-only artifacts do not block rebase.
+          git restore --worktree data/dwca.sqlite || true
+          rm -f data/changes_summary.json || true
           git status --short
           git fetch origin main
           git rebase origin/main
