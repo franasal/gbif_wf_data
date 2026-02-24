@@ -64,7 +64,13 @@ jobs:
       
           git config user.name "gbif-bot"
           git config user.email "gbif-bot@users.noreply.github.com"
-      
+
+          # Stage modifications/deletions for any tracked generated files under data/.
+          # This prevents rebase failures when a tracked output changes but was omitted
+          # from the explicit allowlist below.
+          git add -u data
+
+          # Stage generated outputs that may be newly created in a fresh checkout.
           for file in \
             data/gbif_state.json \
             data/names_edible.json \
@@ -78,17 +84,15 @@ jobs:
             data/occurrences_compact.json.gz \
             data/occurrences_compact_edible.json.gz \
             data/occurrences_compact_poisonous.json.gz \
-            data/updates_summary.json; do
-            if [ -f "data/updates_summary_edible.json" ]; then
-              git add data/updates_summary_edible.json
-            fi
-            if [ -f "data/updates_summary_poisonous.json" ]; then
-              git add data/updates_summary_poisonous.json
-            fi
+            data/updates_summary.json \
+            data/updates_summary_edible.json \
+            data/updates_summary_poisonous.json; do
             if [ -f "$file" ]; then
               git add "$file"
             fi
           done
+
+          git status --short
       
           if git diff --cached --quiet; then
             echo "No changes."
@@ -98,6 +102,10 @@ jobs:
           git commit -m "chore(state): daily GBIF refresh"
       
           # Sync with remote to avoid "fetch first"
+          # DB file is uploaded as an Actions artifact above; keep the git worktree clean
+          # so rebase can proceed even if the DB is generated locally in this job.
+          rm -f data/dwca.sqlite || true
+          git status --short
           git fetch origin main
           git rebase origin/main
       
