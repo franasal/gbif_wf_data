@@ -114,6 +114,11 @@ jobs:
         run: |
           python -u tools/run_daily_update.py --export-only
 
+      - name: Generate approved observations overlay placeholder (if missing)
+        run: |
+          python -u tools/generate_approved_observations_placeholder.py \
+            --out data/approved_observations.json.gz
+
       - name: Commit outputs (if changed) and push
         run: |
           set -euxo pipefail
@@ -142,6 +147,10 @@ jobs:
             data/occurrences_compact.json.gz \
             data/occurrences_compact_edible.json.gz \
             data/occurrences_compact_poisonous.json.gz \
+            data/occurrences_recent.json.gz \
+            data/occurrences_recent_edible.json.gz \
+            data/occurrences_recent_poisonous.json.gz \
+            data/approved_observations.json.gz \
             data/updates_summary.json \
             data/updates_summary_edible.json \
             data/updates_summary_poisonous.json; do
@@ -179,6 +188,10 @@ jobs:
             --dataset data/occurrences_compact.json.gz \
             --dataset-edible data/occurrences_compact_edible.json.gz \
             --dataset-poisonous data/occurrences_compact_poisonous.json.gz \
+            --recent-dataset data/occurrences_recent.json.gz \
+            --recent-dataset-edible data/occurrences_recent_edible.json.gz \
+            --recent-dataset-poisonous data/occurrences_recent_poisonous.json.gz \
+            --approved-observations data/approved_observations.json.gz \
             --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
             --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip
 
@@ -192,5 +205,8 @@ jobs:
             --notes "Auto-generated data export (split + light packs)." \
             --dataset-edible data/occurrences_compact_edible.json.gz \
             --dataset-poisonous data/occurrences_compact_poisonous.json.gz \
+            --recent-dataset-edible data/occurrences_recent_edible.json.gz \
+            --recent-dataset-poisonous data/occurrences_recent_poisonous.json.gz \
+            --approved-observations data/approved_observations.json.gz \
             --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
             --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip

@@ -61,6 +61,10 @@ def main() -> int:
     ap.add_argument("--dataset-legacy", default="data/occurrences_compact.json.gz", help="Legacy dataset asset path")
     ap.add_argument("--dataset-edible", default="data/occurrences_compact_edible.json.gz", help="Edible dataset asset path")
     ap.add_argument("--dataset-poisonous", default="data/occurrences_compact_poisonous.json.gz", help="Poisonous dataset asset path")
+    ap.add_argument("--recent-dataset", default=None, help="Optional recent raw legacy dataset asset path")
+    ap.add_argument("--recent-dataset-edible", default=None, help="Optional recent raw edible dataset asset path")
+    ap.add_argument("--recent-dataset-poisonous", default=None, help="Optional recent raw poisonous dataset asset path")
+    ap.add_argument("--approved-observations", default=None, help="Optional approved community observations overlay asset path")
     ap.add_argument("--stats", default="data/stats_summary.json", help="Stats asset path (optional)")
     ap.add_argument("--thumbs-pack", default=None, help="Optional thumbs pack zip (e.g. data/thumbs_pack_latest.zip)")
     ap.add_argument("--light-pack-edible", default="assets/plant_images/light_build/edible/gbif_light_edible.zip", help="Light pack (edible) zip path")
@@ -83,6 +87,10 @@ def main() -> int:
     legacy_path = Path(args.dataset) if args.dataset else Path(args.dataset_legacy)
     dataset_edible = Path(args.dataset_edible)
     dataset_poisonous = Path(args.dataset_poisonous)
+    recent_legacy = Path(args.recent_dataset) if args.recent_dataset else None
+    recent_edible = Path(args.recent_dataset_edible) if args.recent_dataset_edible else None
+    recent_poisonous = Path(args.recent_dataset_poisonous) if args.recent_dataset_poisonous else None
+    approved_observations = Path(args.approved_observations) if args.approved_observations else None
     light_edible = Path(args.light_pack_edible) if args.light_pack_edible else None
     light_poisonous = Path(args.light_pack_poisonous) if args.light_pack_poisonous else None
     stats = Path(args.stats) if args.stats else None
@@ -91,6 +99,14 @@ def main() -> int:
     upload_asset(tag, legacy_path, clobber=clobber)
     upload_asset(tag, dataset_edible, clobber=clobber)
     upload_asset(tag, dataset_poisonous, clobber=clobber)
+    if recent_legacy:
+        upload_asset(tag, recent_legacy, clobber=clobber)
+    if recent_edible:
+        upload_asset(tag, recent_edible, clobber=clobber)
+    if recent_poisonous:
+        upload_asset(tag, recent_poisonous, clobber=clobber)
+    if approved_observations:
+        upload_asset(tag, approved_observations, clobber=clobber)
     if light_edible:
         upload_asset(tag, light_edible, clobber=clobber)
     if light_poisonous:
