@@ -106,6 +106,24 @@ def load_name_map(path: Optional[str]) -> Dict[str, str]:
     )
 
 
+def load_taxon_cache(path: Optional[str]) -> Dict[str, dict]:
+    if not path:
+        return {}
+    if not os.path.exists(path):
+        print(f"[warn] taxon-cache not found, skipping: {path}")
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"[warn] taxon-cache could not be read, skipping: {path} ({e})")
+        return {}
+    if isinstance(data, dict):
+        return data
+    print(f"[warn] taxon-cache invalid format, expected object: {path}")
+    return {}
+
+
 def load_images_index(path: Optional[str]) -> Dict[str, dict]:
     if not path:
         return {}
@@ -259,6 +277,7 @@ def main():
     ap.add_argument("--region-lon", type=float, default=10.0)
 
     ap.add_argument("--names-json", default=None)
+    ap.add_argument("--taxon-cache", default=None, help="Optional taxon cache JSON for synonym -> acceptedUsageKey.")
     ap.add_argument("--images-index", default=None)
     ap.add_argument("--gzip", action="store_true")
     ap.add_argument("--debug", action="store_true")
@@ -287,6 +306,23 @@ def main():
 
         name_map = load_name_map(args.names_json)
         images_map = load_images_index(args.images_index)
+        taxon_cache = load_taxon_cache(args.taxon_cache)
+
+        preferred_taxon_by_species: Dict[str, Optional[int]] = {}
+        if name_map and col_taxon and taxon_cache:
+            for sci in name_map.keys():
+                entry = taxon_cache.get(sci)
+                if not isinstance(entry, dict):
+                    continue
+                status = str(entry.get("status") or "").upper()
+                usage_key = entry.get("usageKey") or entry.get("acceptedUsageKey")
+                accepted_key = entry.get("acceptedUsageKey")
+                preferred = accepted_key if status == "SYNONYM" and accepted_key is not None else usage_key
+                try:
+                    if preferred is not None:
+                        preferred_taxon_by_species[sci] = int(preferred)
+                except Exception:
+                    continue
 
         # Base WHERE (true totals + scan)
         where = [f"{col_lat} IS NOT NULL", f"{col_lon} IS NOT NULL"]
@@ -310,23 +346,55 @@ def main():
         # Otherwise fall back to “top N by counts”.
         true_totals: Dict[str, int] = {}
 
+        use_taxon_whitelist = False
         if name_map:
             # Whitelist is authoritative; include all configured plants.
             top_species = list(name_map.keys())
 
-            # Create temp table once (used by stream query too)
-            con.execute("DROP TABLE IF EXISTS _wanted_species;")
-            con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
-            con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
-            con.commit()
+            use_taxon_whitelist = bool(col_taxon) and bool(preferred_taxon_by_species)
+            if use_taxon_whitelist:
+                wanted_taxa: List[Tuple[int, str]] = []
+                seen_taxa: set[int] = set()
+                for sci in top_species:
+                    tk = preferred_taxon_by_species.get(sci)
+                    if tk is None:
+                        continue
+                    if tk in seen_taxa:
+                        print(f"[warn] duplicate preferred taxonKey {tk} for {sci}, skipping", file=sys.stderr)
+                        continue
+                    seen_taxa.add(tk)
+                    wanted_taxa.append((tk, sci))
+                if wanted_taxa:
+                    con.execute("DROP TABLE IF EXISTS _wanted_taxa;")
+                    con.execute("CREATE TEMP TABLE _wanted_taxa (tk INTEGER PRIMARY KEY, sci TEXT);")
+                    con.executemany("INSERT OR IGNORE INTO _wanted_taxa(tk, sci) VALUES (?, ?)", wanted_taxa)
+                    con.commit()
+                else:
+                    use_taxon_whitelist = False
 
-            q_totals = f"""
-              SELECT o.{col_sci} AS sci, COUNT(1) AS n
-              FROM {table} o
-              JOIN _wanted_species w ON w.sci = o.{col_sci}
-              {where_sql}
-              GROUP BY o.{col_sci}
-            """
+            if not use_taxon_whitelist:
+                # Create temp table once (used by stream query too)
+                con.execute("DROP TABLE IF EXISTS _wanted_species;")
+                con.execute("CREATE TEMP TABLE _wanted_species (sci TEXT PRIMARY KEY);")
+                con.executemany("INSERT OR IGNORE INTO _wanted_species(sci) VALUES (?)", [(s,) for s in top_species])
+                con.commit()
+
+            if use_taxon_whitelist:
+                q_totals = f"""
+                  SELECT w.sci AS sci, COUNT(1) AS n
+                  FROM {table} o
+                  JOIN _wanted_taxa w ON w.tk = o.{col_taxon}
+                  {where_sql}
+                  GROUP BY w.sci
+                """
+            else:
+                q_totals = f"""
+                  SELECT o.{col_sci} AS sci, COUNT(1) AS n
+                  FROM {table} o
+                  JOIN _wanted_species w ON w.sci = o.{col_sci}
+                  {where_sql}
+                  GROUP BY o.{col_sci}
+                """
             rows = con.execute(q_totals, params).fetchall()
             true_totals = {r["sci"]: int(r["n"]) for r in rows if r["sci"]}
 
@@ -354,7 +422,10 @@ def main():
 
         # TaxonKey dict (best effort, always defined)
         taxon_by_species: Dict[str, Optional[int]] = {s: None for s in top_species}
-        if col_taxon:
+        if use_taxon_whitelist and preferred_taxon_by_species:
+            for sci in top_species:
+                taxon_by_species[sci] = preferred_taxon_by_species.get(sci)
+        elif col_taxon:
             q_taxon = f"""
               SELECT o.{col_sci} AS sci, MAX(o.{col_taxon}) AS tk
               FROM {table} o
@@ -373,13 +444,22 @@ def main():
         # 2) Precompute true month counts (all filtered rows, not sampled points)
         true_month_counts: Dict[str, List[int]] = {s: [0] * 12 for s in top_species}
         if col_month:
-            q_months = f"""
-              SELECT o.{col_sci} AS sci, o.{col_month} AS m, COUNT(1) AS n
-              FROM {table} o
-              JOIN _wanted_species w ON w.sci = o.{col_sci}
-              {where_sql} AND o.{col_month} BETWEEN 1 AND 12
-              GROUP BY o.{col_sci}, o.{col_month}
-            """
+            if use_taxon_whitelist:
+                q_months = f"""
+                  SELECT w.sci AS sci, o.{col_month} AS m, COUNT(1) AS n
+                  FROM {table} o
+                  JOIN _wanted_taxa w ON w.tk = o.{col_taxon}
+                  {where_sql} AND o.{col_month} BETWEEN 1 AND 12
+                  GROUP BY w.sci, o.{col_month}
+                """
+            else:
+                q_months = f"""
+                  SELECT o.{col_sci} AS sci, o.{col_month} AS m, COUNT(1) AS n
+                  FROM {table} o
+                  JOIN _wanted_species w ON w.sci = o.{col_sci}
+                  {where_sql} AND o.{col_month} BETWEEN 1 AND 12
+                  GROUP BY o.{col_sci}, o.{col_month}
+                """
             for row in con.execute(q_months, params):
                 sci = row["sci"]
                 if not sci:
@@ -431,8 +511,11 @@ def main():
         available_tables = set(list_tables(con))
         can_join_media = "occ_media" in available_tables and bool(col_gbif_id)
 
+        sci_select = f"o.{col_sci} AS sci"
+        if use_taxon_whitelist:
+            sci_select = "w.sci AS sci"
         select_cols = [
-            f"o.{col_sci} AS sci",
+            sci_select,
             f"o.{col_lat} AS lat",
             f"o.{col_lon} AS lon",
             (f"o.{col_event_date} AS event_date" if col_event_date else "NULL AS event_date"),
@@ -468,11 +551,14 @@ def main():
             order_parts.append(f"o.{col_day} DESC")
         if not order_parts:
             order_parts = [f"o.{col_sci} ASC"]
+        join_sql = f"JOIN _wanted_species w ON w.sci = o.{col_sci}"
+        if use_taxon_whitelist:
+            join_sql = f"JOIN _wanted_taxa w ON w.tk = o.{col_taxon}"
         q_stream = f"""
           SELECT
             {", ".join(select_cols)}
           FROM {table} o
-          JOIN _wanted_species w ON w.sci = o.{col_sci}
+          {join_sql}
           {media_join_sql}
           {where_sql}
           ORDER BY {", ".join(order_parts)}

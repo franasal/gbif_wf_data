@@ -114,6 +114,32 @@ jobs:
         run: |
           python -u tools/run_daily_update.py --export-only
 
+      - name: Export approved observations overlay from Firestore (if queued)
+        env:
+          FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON }}
+          FIRESTORE_DATABASE_ID: wild--forager-db
+        run: |
+          set -euxo pipefail
+          if [ -z "${FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON:-}" ]; then
+            echo "FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON not set; skipping Firestore overlay export."
+            exit 0
+          fi
+          python - <<'PY'
+import os
+from pathlib import Path
+out = Path("data/firebase_admin_service_account.json")
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(os.environ["FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON"], encoding="utf-8")
+print(f"Wrote {out}")
+PY
+          python -u tools/export_approved_observations_from_firestore.py \
+            --service-account data/firebase_admin_service_account.json \
+            --database-id "${FIRESTORE_DATABASE_ID}" \
+            --out data/approved_observations.json.gz \
+            --require-trigger \
+            --mark-trigger-processed
+          rm -f data/firebase_admin_service_account.json
+
       - name: Generate approved observations overlay placeholder (if missing)
         run: |
           python -u tools/generate_approved_observations_placeholder.py \

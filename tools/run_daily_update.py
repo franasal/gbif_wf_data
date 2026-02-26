@@ -563,6 +563,7 @@ def main() -> None:
                 "--db", str(db_path),
                 "--out", str(out_path),
                 "--names-json", str(names_path),
+                "--taxon-cache", str(repo / "data" / "taxon_cache.json"),
                 "--top-n", str(int(cfg.get("top_n", 250))),
                 "--cell-precision", str(int(cfg.get("cell_precision", 5))),
                 "--keep-per-cell", str(int(cfg.get("keep_per_cell", 6))),
