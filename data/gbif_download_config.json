@@ -6,7 +6,7 @@
   "window_filter_key": "EVENT_DATE",
   "rolling_window_days": 1095,
 
-  "daily_window_days": 1095,
+  "daily_window_days": 1,
   "weekly_refresh_weekday": 2,
 
   "top_n": 250,
@@ -14,6 +14,8 @@
   "cell_precision": 5,
   "keep_per_cell": 6,
   "max_points_per_plant": 700,
+  "adaptive_sampling": true,
+  "recent_max_points_per_plant": 300,
 
   "gzip_json": true,
   "images_index": "assets/plant_images/index.json"

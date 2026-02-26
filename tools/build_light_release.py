@@ -19,6 +19,9 @@ except ImportError as exc:
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".gif"}
 
 KNOWN_PREFIXES = ["reviewed", "has_lookalike", "lookallike", "missing"]
+REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_ROOT = REPO_ROOT.parent
+SYNONYMS_JSON_DEFAULT = APP_ROOT / "assets" / "data" / "synonyms.json"
 
 
 def sha256_file(path: Path) -> str:
@@ -106,6 +109,29 @@ def slugify_scientific(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", slug)
     slug = re.sub(r"_+", "_", slug)
     return slug.strip("_")
+
+
+def load_synonym_slug_map(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    root = data.get("scientificNameToAccepted") if isinstance(data, dict) else None
+    if not isinstance(root, dict):
+        return {}
+    out: Dict[str, str] = {}
+    for k, v in root.items():
+        from_slug = slugify_scientific(str(k))
+        to_slug = slugify_scientific(str(v))
+        if from_slug and to_slug:
+            out[from_slug] = to_slug
+    return out
+
+
+def canonical_slug(slug: str, synonym_slug_map: Dict[str, str]) -> str:
+    return synonym_slug_map.get(slug, slug)
 
 
 def ensure_webp(
@@ -225,6 +251,11 @@ def main() -> None:
         help="Path to poisonous names JSON (required when filtering or splitting).",
     )
     parser.add_argument(
+        "--synonyms-json",
+        default=str(SYNONYMS_JSON_DEFAULT),
+        help="Path to centralized synonyms.json (main app assets).",
+    )
+    parser.add_argument(
         "--class-filter",
         choices=["all", "edible", "poisonous"],
         default="all",
@@ -291,6 +322,7 @@ def main() -> None:
     # Load index metadata + start timer
     start_time = time.time()
     index_map = load_index_map(Path(args.index_csv))
+    synonym_slug_map = load_synonym_slug_map(Path(args.synonyms_json))
 
     # Prepare class filters
     edible_slugs: Optional[set[str]] = None
@@ -306,8 +338,8 @@ def main() -> None:
         poisonous_data = json.loads(poisonous_path.read_text())
         if not isinstance(edible_data, dict) or not isinstance(poisonous_data, dict):
             raise SystemExit("names_edible.json and names_poisonous.json must be JSON dicts.")
-        edible_slugs = {slugify_scientific(k) for k in edible_data.keys()}
-        poisonous_slugs = {slugify_scientific(k) for k in poisonous_data.keys()}
+        edible_slugs = {canonical_slug(slugify_scientific(k), synonym_slug_map) for k in edible_data.keys()}
+        poisonous_slugs = {canonical_slug(slugify_scientific(k), synonym_slug_map) for k in poisonous_data.keys()}
 
     def classify(base_slug: str) -> str:
         if edible_slugs is None or poisonous_slugs is None:
@@ -380,6 +412,7 @@ def main() -> None:
             skipped_no_selected += 1
             continue
         base_slug, prefix_flags = strip_prefixes(plant_dir.name)
+        base_slug = canonical_slug(base_slug, synonym_slug_map)
         class_label = classify(base_slug)
         if args.class_filter != "all" and not args.split_by_class:
             if class_label != args.class_filter:
@@ -397,7 +430,13 @@ def main() -> None:
         else:
             buckets_for_plant = ("combined",)
 
-        rel_dir = plant_dir.name if args.keep_prefixes else base_slug
+        rel_dir_base = canonical_slug(base_slug, synonym_slug_map)
+        if args.keep_prefixes:
+            prefix, _ = strip_prefixes(plant_dir.name)
+            # keep existing curation prefixes but normalize the underlying slug
+            rel_dir = plant_dir.name.replace(prefix, rel_dir_base, 1)
+        else:
+            rel_dir = rel_dir_base
 
         picked_for_plant = 0
         for src in sorted(selected_dir.iterdir()):

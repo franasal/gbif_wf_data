@@ -16,6 +16,7 @@ INDEX_JSON = ROOT / "index.json"
 INDEX_CSV = ROOT / "index.csv"
 PARTIAL_MANIFEST = ROOT / "partial_manifest.json"
 CURATED_PLANTS = ROOT / "curated_plants.json"
+SYNONYMS_JSON = REPO_ROOT.parent / "assets" / "data" / "synonyms.json"
 
 POISONOUS_FILES = [
     REPO_ROOT / "assets" / "data" / "poisonous" / "en.json",
@@ -44,6 +45,25 @@ def slugify_scientific(name: str) -> str:
     return slug.strip("_")
 
 
+def load_synonym_slug_map() -> dict[str, str]:
+    if not SYNONYMS_JSON.exists():
+        return {}
+    try:
+        data = json.loads(SYNONYMS_JSON.read_text())
+    except Exception:
+        return {}
+    root = data.get("scientificNameToAccepted") if isinstance(data, dict) else None
+    if not isinstance(root, dict):
+        return {}
+    out: dict[str, str] = {}
+    for k, v in root.items():
+        from_slug = slugify_scientific(str(k))
+        to_slug = slugify_scientific(str(v))
+        if from_slug and to_slug:
+            out[from_slug] = to_slug
+    return out
+
+
 def strip_prefixes(folder_name: str) -> tuple[str, dict[str, bool]]:
     base = folder_name
     flags = {p: False for p in KNOWN_PREFIXES}
@@ -67,6 +87,7 @@ def count_selected_light(folder: Path) -> int:
 
 
 def load_poisonous_sets() -> tuple[set[str], set[str]]:
+    synonym_slug_map = load_synonym_slug_map()
     poisonous = set()
     lookalikes = set()
     for path in POISONOUS_FILES:
@@ -77,11 +98,13 @@ def load_poisonous_sets() -> tuple[set[str], set[str]]:
         for entry in data:
             sci = entry.get("scientificName")
             if sci:
-                poisonous.add(slugify_scientific(sci))
+                slug = slugify_scientific(sci)
+                poisonous.add(synonym_slug_map.get(slug, slug))
             for lk in entry.get("lookalikes", []):
                 sci_lk = lk.get("scientificName")
                 if sci_lk:
-                    lookalikes.add(slugify_scientific(sci_lk))
+                    slug = slugify_scientific(sci_lk)
+                    lookalikes.add(synonym_slug_map.get(slug, slug))
     return poisonous, lookalikes
 
 
@@ -106,6 +129,7 @@ def build_prefix(
 
 
 def rename_folders() -> dict[str, str]:
+    synonym_slug_map = load_synonym_slug_map()
     poisonous, lookalikes = load_poisonous_sets()
     mapping: dict[str, str] = {}
     for entry in sorted(ROOT.iterdir()):
@@ -114,6 +138,7 @@ def rename_folders() -> dict[str, str]:
         if entry.name in {"selected", "selected_light"}:
             continue
         base_slug, prefix_flags = strip_prefixes(entry.name)
+        base_slug = synonym_slug_map.get(base_slug, base_slug)
         is_reviewed = count_selected_light(entry) >= REVIEWED_MIN
         is_poisonous = base_slug in poisonous
         has_lookalike = base_slug in lookalikes

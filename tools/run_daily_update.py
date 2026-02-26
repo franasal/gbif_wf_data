@@ -568,6 +568,17 @@ def main() -> None:
                 "--keep-per-cell", str(int(cfg.get("keep_per_cell", 6))),
                 "--max-points-per-plant", str(int(cfg.get("max_points_per_plant", 700))),
             ]
+            if bool(cfg.get("adaptive_sampling", False)):
+                args += ["--adaptive-sampling"]
+            recent_max = int(cfg.get("recent_max_points_per_plant", 0) or 0)
+            if recent_max > 0:
+                recent_name = out_path.name.replace("occurrences_compact", "occurrences_recent")
+                args += [
+                    "--recent-out",
+                    str(out_path.with_name(recent_name)),
+                    "--recent-max-points-per-plant",
+                    str(recent_max),
+                ]
 
             if country:
                 args += ["--country", str(country)]

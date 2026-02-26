@@ -36,6 +36,10 @@ COMMERCIAL_LICENSES = {
     "cc-by-sa-3.0": "CC BY-SA 3.0",
 }
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_ROOT = REPO_ROOT.parent
+SYNONYMS_JSON_DEFAULT = APP_ROOT / "assets" / "data" / "synonyms.json"
+
 
 def http_get(
     session: requests.Session,
@@ -201,6 +205,32 @@ def slugify(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "_", s)
     s = re.sub(r"_+", "_", s).strip("_")
     return s or "plant"
+
+
+def load_synonym_map(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    root = data.get("scientificNameToAccepted") if isinstance(data, dict) else None
+    if not isinstance(root, dict):
+        return {}
+    out: Dict[str, str] = {}
+    for k, v in root.items():
+        ks = str(k).strip().lower()
+        vs = str(v).strip()
+        if ks and vs:
+            out[ks] = vs
+    return out
+
+
+def canonical_scientific(name: str, synonym_map: Dict[str, str]) -> str:
+    n = str(name or "").strip()
+    if not n:
+        return n
+    return synonym_map.get(n.lower(), n)
 
 
 def guess_extension(media_obj: Dict[str, Any], identifier: str) -> str:
@@ -371,7 +401,7 @@ def select_candidates(
 
 
 def build_filename(row: Dict[str, Any]) -> str:
-    plant = slugify(row.get("plant_scientific") or "plant")
+    plant = slugify(row.get("plant_scientific_canonical") or row.get("plant_scientific") or "plant")
     occ_key = row.get("occurrenceKey") or "occ"
     identifier = row.get("media_identifier") or ""
     lic_key = row.get("media_license_key") or "lic"
@@ -391,7 +421,7 @@ def download_image(
     identifier = row.get("media_identifier") or ""
     if not identifier:
         return None
-    plant_dir = out_dir / slugify(row.get("plant_scientific") or "plant")
+    plant_dir = out_dir / slugify(row.get("plant_scientific_canonical") or row.get("plant_scientific") or "plant")
     plant_dir.mkdir(parents=True, exist_ok=True)
     filename = build_filename(row)
     out_path = plant_dir / filename
@@ -487,6 +517,11 @@ def main() -> None:
         default=0,
         help="If set, limit processing to first N plants (for testing).",
     )
+    parser.add_argument(
+        "--synonyms-json",
+        default=str(SYNONYMS_JSON_DEFAULT),
+        help="Path to centralized synonyms.json (main app assets).",
+    )
 
     args = parser.parse_args()
 
@@ -495,6 +530,7 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     meta_json = Path(args.meta_json)
     meta_csv = Path(args.meta_csv)
+    synonyms_map = load_synonym_map(Path(args.synonyms_json))
 
     if not resolved_path.exists():
         raise SystemExit(f"Missing resolved file: {resolved_path}")
@@ -522,10 +558,17 @@ def main() -> None:
     if args.max_plants and args.max_plants > 0:
         plants = plants[: args.max_plants]
 
+    seen_plant_targets = set()
     for idx, plant in enumerate(plants, start=1):
         plant_name = plant.get("scientificName")
+        plant_name_canonical = canonical_scientific(plant_name or "", synonyms_map)
         print(f"[{idx}/{len(plants)}] {plant_name}")
-        plant_slug = slugify(plant_name or "plant")
+        plant_slug = slugify(plant_name_canonical or "plant")
+        dedup_key = (plant.get("taxonKey"), plant_slug)
+        if dedup_key in seen_plant_targets:
+            print(f"  Skipping duplicate synonym target -> {plant_name_canonical}")
+            continue
+        seen_plant_targets.add(dedup_key)
         plant_dir = out_dir / plant_slug
         selected_dir = plant_dir / "selected"
         selected_light_dir = plant_dir / "selected_light"
@@ -575,8 +618,10 @@ def main() -> None:
         selected = candidates[:remaining]
         for row in selected:
             row["selected"] = True
+            row["plant_scientific_canonical"] = plant_name_canonical
         for row in candidates[remaining:]:
             row["selected"] = False
+            row["plant_scientific_canonical"] = plant_name_canonical
         all_rows.extend(candidates)
 
         if args.no_download:

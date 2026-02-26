@@ -210,6 +210,21 @@ def _trim_trailing_nulls(values: List[object]) -> List[object]:
     return out
 
 
+def _adaptive_caps(
+    true_total: int,
+    base_keep_per_cell: int,
+    base_max_points: int,
+) -> Tuple[int, int, str]:
+    # Tuned for map UX: keep more for sparse taxa, cap dense taxa without losing coverage.
+    if true_total <= 250:
+        return (max(base_keep_per_cell, 8), max(base_max_points, 1200), "rare")
+    if true_total <= 1500:
+        return (max(base_keep_per_cell, 6), max(base_max_points, 900), "medium")
+    if true_total <= 6000:
+        return (max(base_keep_per_cell, 4), max(base_max_points, 700), "common")
+    return (max(2, min(base_keep_per_cell, 3)), max(400, min(base_max_points, 600)), "very_common")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Export sparse occurrences JSON: newest N per cell, hotspot-capped.")
     ap.add_argument("--db", required=True)
@@ -222,6 +237,22 @@ def main():
     ap.add_argument("--cell-precision", type=int, default=5, help="Geohash precision (default 5)")
     ap.add_argument("--keep-per-cell", type=int, default=6, help="Newest points per plant per cell (default 6)")
     ap.add_argument("--max-points-per-plant", type=int, default=700, help="Global cap per plant (default 700)")
+    ap.add_argument(
+        "--adaptive-sampling",
+        action="store_true",
+        help="Use adaptive per-plant map sampling caps based on true_total (recommended).",
+    )
+    ap.add_argument(
+        "--recent-out",
+        default=None,
+        help="Optional second export path with latest raw observations per plant (no geohash sampling).",
+    )
+    ap.add_argument(
+        "--recent-max-points-per-plant",
+        type=int,
+        default=0,
+        help="Max raw latest observations per plant for --recent-out (0 disables recent export).",
+    )
 
     ap.add_argument("--region-name", default="Germany")
     ap.add_argument("--region-lat", type=float, default=51.0)
@@ -245,8 +276,10 @@ def main():
         col_lat = resolve_col(cols, ["lat", "decimalLatitude", "latitude"])
         col_lon = resolve_col(cols, ["lon", "decimalLongitude", "longitude"])
         col_gbif_id = resolve_col(cols, ["gbifID", "gbifId", "id"], required=False)
+        col_event_date = resolve_col(cols, ["eventDate", "event_date"], required=False)
         col_year = resolve_col(cols, ["year"], required=False)
         col_month = resolve_col(cols, ["month"], required=False)
+        col_day = resolve_col(cols, ["day"], required=False)
         col_country = resolve_col(cols, ["countryCode", "country_code", "country"], required=False)
         col_dataset_name = resolve_col(cols, ["datasetName"], required=False)
         col_publisher = resolve_col(cols, ["publisher"], required=False)
@@ -337,13 +370,48 @@ def main():
                 except Exception:
                     taxon_by_species[str(row["sci"])] = None
 
-        # 2) Prepare output containers
+        # 2) Precompute true month counts (all filtered rows, not sampled points)
+        true_month_counts: Dict[str, List[int]] = {s: [0] * 12 for s in top_species}
+        if col_month:
+            q_months = f"""
+              SELECT o.{col_sci} AS sci, o.{col_month} AS m, COUNT(1) AS n
+              FROM {table} o
+              JOIN _wanted_species w ON w.sci = o.{col_sci}
+              {where_sql} AND o.{col_month} BETWEEN 1 AND 12
+              GROUP BY o.{col_sci}, o.{col_month}
+            """
+            for row in con.execute(q_months, params):
+                sci = row["sci"]
+                if not sci:
+                    continue
+                try:
+                    mi = int(row["m"])
+                    n = int(row["n"])
+                except Exception:
+                    continue
+                if 1 <= mi <= 12 and sci in true_month_counts:
+                    true_month_counts[sci][mi - 1] = n
+
+        # 3) Prepare output containers
         keep_per_cell = max(1, int(args.keep_per_cell))
         max_points = max(1, int(args.max_points_per_plant))
         prec = max(1, int(args.cell_precision))
+        recent_max_points = max(0, int(args.recent_max_points_per_plant or 0))
+        write_recent = bool(args.recent_out and recent_max_points > 0)
 
         plants_out: Dict[str, dict] = {}
         per_cell_counts: Dict[Tuple[str, str], int] = {}  # (sci, cell) -> kept
+        per_plant_keep_per_cell: Dict[str, int] = {}
+        per_plant_max_points: Dict[str, int] = {}
+        sampling_mode_by_species: Dict[str, str] = {}
+        for sci in top_species:
+            if args.adaptive_sampling:
+                kp, mp, bucket = _adaptive_caps(int(true_totals.get(sci, 0)), keep_per_cell, max_points)
+            else:
+                kp, mp, bucket = keep_per_cell, max_points, "fixed"
+            per_plant_keep_per_cell[sci] = kp
+            per_plant_max_points[sci] = mp
+            sampling_mode_by_species[sci] = bucket
 
         sampled_year_counts: Dict[str, Dict[str, int]] = {s: {} for s in top_species}
         sampled_month_counts: Dict[str, List[int]] = {s: [0] * 12 for s in top_species}
@@ -352,11 +420,14 @@ def main():
 
         kept_points: Dict[str, List[list]] = {s: [] for s in top_species}
         source_counts: Dict[str, Dict[str, int]] = {s: defaultdict(int) for s in top_species}
+        recent_points: Dict[str, List[list]] = {s: [] for s in top_species} if write_recent else {}
         done_species = set()
+        recent_done_species = set()
 
-        # 3) Stream newest -> oldest once, keep newest per cell per plant
+        # 4) Stream newest -> oldest once, keep newest per cell per plant
         year_expr = col_year if col_year else "0"
         month_expr = col_month if col_month else "0"
+        day_expr = col_day if col_day else "0"
         available_tables = set(list_tables(con))
         can_join_media = "occ_media" in available_tables and bool(col_gbif_id)
 
@@ -364,8 +435,10 @@ def main():
             f"o.{col_sci} AS sci",
             f"o.{col_lat} AS lat",
             f"o.{col_lon} AS lon",
+            (f"o.{col_event_date} AS event_date" if col_event_date else "NULL AS event_date"),
             f"o.{year_expr} AS y",
             f"o.{month_expr} AS m",
+            f"o.{day_expr} AS d",
         ]
         if col_gbif_id:
             select_cols.append(f"o.{col_gbif_id} AS gbif_id")
@@ -384,6 +457,17 @@ def main():
 
         media_join_sql = f"LEFT JOIN occ_media m ON m.gbifID = o.{col_gbif_id}" if can_join_media else ""
 
+        order_parts = []
+        if col_event_date:
+            order_parts.extend([f"(o.{col_event_date} IS NULL) ASC", f"o.{col_event_date} DESC"])
+        if col_year:
+            order_parts.append(f"o.{col_year} DESC")
+        if col_month:
+            order_parts.append(f"o.{col_month} DESC")
+        if col_day:
+            order_parts.append(f"o.{col_day} DESC")
+        if not order_parts:
+            order_parts = [f"o.{col_sci} ASC"]
         q_stream = f"""
           SELECT
             {", ".join(select_cols)}
@@ -391,7 +475,7 @@ def main():
           JOIN _wanted_species w ON w.sci = o.{col_sci}
           {media_join_sql}
           {where_sql}
-          ORDER BY o.{year_expr} DESC, o.{month_expr} DESC
+          ORDER BY {", ".join(order_parts)}
         """
 
         cur = con.execute(q_stream, params)
@@ -404,7 +488,8 @@ def main():
 
             sci = r["sci"]
             if sci in done_species:
-                continue
+                if not write_recent or sci in recent_done_species:
+                    continue
 
             lat = r["lat"]
             lon = r["lon"]
@@ -418,6 +503,7 @@ def main():
 
             y = r["y"]
             m = r["m"]
+            d = r["d"]
             try:
                 yi = int(y) if y is not None else None
             except Exception:
@@ -428,17 +514,15 @@ def main():
                 mi = None
             if mi is not None and not (1 <= mi <= 12):
                 mi = None
+            try:
+                di = int(d) if d is not None else None
+            except Exception:
+                di = None
+            if di is not None and not (1 <= di <= 31):
+                di = None
 
             cell = geohash_encode(latf, lonf, precision=prec)
             key = (sci, cell)
-
-            if per_cell_counts.get(key, 0) >= keep_per_cell:
-                continue
-
-            pts = kept_points[sci]
-            if len(pts) >= max_points:
-                done_species.add(sci)
-                continue
 
             gbif_id_val = r["gbif_id"] if col_gbif_id else None
             try:
@@ -473,35 +557,54 @@ def main():
                     (str(refs_url) if refs_url else None),
                 ]
             )
-            pts.append(point)
-            per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
+            # Optional "recent raw" export: newest observations per plant, no geohash sampling.
+            if write_recent and sci not in recent_done_species:
+                rp = recent_points[sci]
+                if len(rp) < recent_max_points:
+                    rp.append(point)
+                if len(rp) >= recent_max_points:
+                    recent_done_species.add(sci)
 
-            if yi is not None:
-                ys = str(yi)
-                sampled_year_counts[sci][ys] = sampled_year_counts[sci].get(ys, 0) + 1
+            # Core compact export: adaptive/fixed geohash sampling.
+            if sci not in done_species:
+                sci_keep_per_cell = per_plant_keep_per_cell[sci]
+                sci_max_points = per_plant_max_points[sci]
 
-            if mi is not None:
-                sampled_month_counts[sci][mi - 1] += 1
+                if per_cell_counts.get(key, 0) < sci_keep_per_cell:
+                    pts = kept_points[sci]
+                    if len(pts) < sci_max_points:
+                        pts.append(point)
+                        per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
 
-            bb = bbox_map[sci]
-            if bb[0] is None:
-                bbox_map[sci] = [latf, latf, lonf, lonf]
-            else:
-                bb[0] = min(bb[0], latf)
-                bb[1] = max(bb[1], latf)
-                bb[2] = min(bb[2], lonf)
-                bb[3] = max(bb[3], lonf)
+                        if yi is not None:
+                            ys = str(yi)
+                            sampled_year_counts[sci][ys] = sampled_year_counts[sci].get(ys, 0) + 1
 
-            if last_obs_map[sci] is None and yi is not None:
-                last_obs_map[sci] = (yi, mi or None)
+                        if mi is not None:
+                            sampled_month_counts[sci][mi - 1] += 1
 
-            if len(pts) >= max_points:
-                done_species.add(sci)
+                        bb = bbox_map[sci]
+                        if bb[0] is None:
+                            bbox_map[sci] = [latf, latf, lonf, lonf]
+                        else:
+                            bb[0] = min(bb[0], latf)
+                            bb[1] = max(bb[1], latf)
+                            bb[2] = min(bb[2], lonf)
+                            bb[3] = max(bb[3], lonf)
 
-            if len(done_species) == len(top_species):
+                        if last_obs_map[sci] is None and yi is not None:
+                            last_obs_map[sci] = (yi, mi or None)
+
+                    if len(kept_points[sci]) >= sci_max_points:
+                        done_species.add(sci)
+                else:
+                    # Cell quota already full.
+                    pass
+
+            if len(done_species) == len(top_species) and (not write_recent or len(recent_done_species) == len(top_species)):
                 break
 
-        # 4) Build plant objects
+        # 5) Build plant objects
         for sci in top_species:
             pts = kept_points[sci]
             yc = sampled_year_counts[sci]
@@ -517,11 +620,19 @@ def main():
                 "taxonKey": taxon_by_species.get(sci),
                 "total": int(true_totals.get(sci, 0)),
                 "year_counts": yc,
-                "month_counts_all": sampled_month_counts[sci],
+                # Seasonality must reflect all filtered GBIF rows, not sampled map points.
+                "month_counts_all": true_month_counts[sci],
                 "last_obs": last_obs_obj,
                 "bbox": bbox_map[sci] if bbox_map[sci][0] is not None else None,
                 "points": pts,
                 "sampled_total": len(pts),
+                "sampling": {
+                    "mode": ("adaptive" if args.adaptive_sampling else "fixed"),
+                    "bucket": sampling_mode_by_species.get(sci, "fixed"),
+                    "keep_per_cell": per_plant_keep_per_cell.get(sci, keep_per_cell),
+                    "max_points_per_plant": per_plant_max_points.get(sci, max_points),
+                    "ratio": (round(len(pts) / obj_total, 6) if (obj_total := int(true_totals.get(sci, 0))) > 0 else None),
+                },
                 "observation_sources": dict(sorted(source_counts[sci].items())),
             }
 
@@ -544,6 +655,7 @@ def main():
                 "cell_precision": prec,
                 "keep_per_cell": keep_per_cell,
                 "max_points_per_plant": max_points,
+                "adaptive_sampling": bool(args.adaptive_sampling),
                 "scanned_rows": scanned,
                 "points_schema": [
                     "lat",
@@ -561,6 +673,36 @@ def main():
         }
 
         write_output(args.out, out, gzip_enabled=bool(args.gzip))
+        if write_recent:
+            recent_plants_out: Dict[str, dict] = {}
+            for sci in top_species:
+                recent_obj = {
+                    "de": name_map.get(sci, ""),
+                    "taxonKey": taxon_by_species.get(sci),
+                    "total": int(true_totals.get(sci, 0)),
+                    "points": recent_points.get(sci, []),
+                    "sampled_total": len(recent_points.get(sci, [])),
+                }
+                if sci in images_map:
+                    recent_obj["image"] = images_map[sci]
+                recent_plants_out[sci] = recent_obj
+            recent_out = {
+                "region": {"name": args.region_name, "center": {"lat": args.region_lat, "lon": args.region_lon}},
+                "plants": recent_plants_out,
+                "meta": {
+                    "generated_at": utc_now_iso(),
+                    "source": os.path.basename(args.db),
+                    "country": args.country or None,
+                    "year_from": args.year_from,
+                    "year_to": args.year_to,
+                    "top_n": args.top_n,
+                    "export_kind": "recent_raw_points",
+                    "recent_max_points_per_plant": recent_max_points,
+                    "ordering": "eventDate desc, year desc, month desc, day desc",
+                    "points_schema": out["meta"]["points_schema"],
+                },
+            }
+            write_output(args.recent_out, recent_out, gzip_enabled=bool(args.gzip))
         return 0
 
     except Exception as e:
