@@ -125,13 +125,13 @@ jobs:
             exit 0
           fi
           python - <<'PY'
-import os
-from pathlib import Path
-out = Path("data/firebase_admin_service_account.json")
-out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(os.environ["FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON"], encoding="utf-8")
-print(f"Wrote {out}")
-PY
+          import os
+          from pathlib import Path
+          out = Path("data/firebase_admin_service_account.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(os.environ["FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON"], encoding="utf-8")
+          print(f"Wrote {out}")
+          PY
           python -u tools/export_approved_observations_from_firestore.py \
             --service-account data/firebase_admin_service_account.json \
             --database-id "${FIRESTORE_DATABASE_ID}" \
