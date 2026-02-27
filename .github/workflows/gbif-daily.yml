@@ -37,6 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Restore GBIF download cache
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true') }}
         uses: actions/cache@v4
         with:
           path: .tmp_gbif
@@ -44,13 +45,35 @@ jobs:
           restore-keys: |
             gbif-zip-${{ runner.os }}-
 
+      - name: Restore GBIF download cache (no restore-keys; force weekly)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: .tmp_gbif
+          key: gbif-zip-${{ runner.os }}-${{ github.run_id }}
+
       - name: Restore SQLite cache
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true') }}
         uses: actions/cache@v4
         with:
           path: data/dwca.sqlite
           key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             dwca-sqlite-${{ runner.os }}-
+
+      - name: Restore SQLite cache (no restore-keys; force weekly)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: data/dwca.sqlite
+          key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Force Weekly: clear cached artifacts (fresh download + rebuild)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
+        run: |
+          set -euxo pipefail
+          rm -rf .tmp_gbif
+          rm -f data/dwca.sqlite data/dwca.sqlite-wal data/dwca.sqlite-shm
 
       - name: Install deps
         run: |
