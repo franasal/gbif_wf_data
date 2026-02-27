@@ -490,7 +490,10 @@ def main() -> None:
 
         taxon_cache = load_json(repo / "data" / "taxon_cache.json", {})
         predicate = build_predicate(resolved_plants, cfg, interpreted_since=since, taxon_cache=taxon_cache)
-        key = args.download_key or os.environ.get("GBIF_DOWNLOAD_KEY")
+        # A GBIF download key is a snapshot of a past query. Reusing one can make it look like
+        # "nothing changes" even when predicates or refresh windows change. We only reuse a key
+        # when explicitly provided via CLI.
+        key = args.download_key
         if key:
             print(f"Using existing GBIF download: {key}", flush=True)
         else:
