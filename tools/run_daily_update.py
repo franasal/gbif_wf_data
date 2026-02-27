@@ -157,7 +157,12 @@ def summarize_updates(
     print(f"Wrote update summary: {out_path}", flush=True)
 
 
-def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: str) -> dict:
+def build_predicate(
+    resolved_plants: list[dict],
+    cfg: dict,
+    interpreted_since: str,
+    taxon_cache: dict | None = None,
+) -> dict:
     preds = []
 
     if cfg.get("require_coordinate", True):
@@ -172,6 +177,16 @@ def build_predicate(resolved_plants: list[dict], cfg: dict, interpreted_since: s
         tk = p.get("taxonKey")
         if tk is None:
             continue
+        if taxon_cache:
+            entry = taxon_cache.get(p.get("scientificName"))
+            if isinstance(entry, dict):
+                status = str(entry.get("status") or "").upper()
+                accepted = entry.get("acceptedUsageKey")
+                usage = entry.get("usageKey") or tk
+                if status == "SYNONYM" and accepted is not None:
+                    tk = accepted
+                else:
+                    tk = usage
         taxon_keys.append(str(int(tk)))
 
     if not taxon_keys:
@@ -456,7 +471,8 @@ def main() -> None:
         pwd = os.environ["GBIF_PWD"]
         email = os.environ.get("GBIF_EMAIL", "noreply@example.org")
 
-        predicate = build_predicate(resolved_plants, cfg, interpreted_since=since)
+        taxon_cache = load_json(repo / "data" / "taxon_cache.json", {})
+        predicate = build_predicate(resolved_plants, cfg, interpreted_since=since, taxon_cache=taxon_cache)
         key = args.download_key or os.environ.get("GBIF_DOWNLOAD_KEY")
         if key:
             print(f"Using existing GBIF download: {key}", flush=True)
