@@ -3,7 +3,18 @@ name: Daily GBIF update
 on:
   schedule:
     - cron: "0 3 * * *"  # daily, 04:00 CET (03:00 UTC)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_weekly:
+        description: "Force a full rolling-window refresh (like weekly) instead of the small daily window."
+        required: false
+        default: false
+        type: boolean
+      commit_outputs:
+        description: "Commit generated state files back to the repo (keeps large datasets out of git)."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -49,7 +60,12 @@ jobs:
           GBIF_EMAIL: ${{ secrets.GBIF_EMAIL }}
           PYTHONUNBUFFERED: "1"
         run: |
-          python -u tools/run_daily_update.py --db-only
+          set -euxo pipefail
+          args=(--db-only)
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}" = "true" ]; then
+            args+=(--force-weekly)
+          fi
+          python -u tools/run_daily_update.py "${args[@]}"
 
       - name: Upload DB checkpoint artifact
         uses: actions/upload-artifact@v4
@@ -146,20 +162,15 @@ jobs:
             --out data/approved_observations.json.gz
 
       - name: Commit outputs (if changed) and push
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_outputs == 'true' }}
         run: |
           set -euxo pipefail
 
           git config user.name "gbif-bot"
           git config user.email "gbif-bot@users.noreply.github.com"
 
-          # Stage modifications/deletions for tracked generated files under data/.
-          git add -u data
-
-          # Keep local-only/generated artifacts out of git commits.
-          git restore --staged --worktree data/dwca.sqlite || true
-          rm -f data/changes_summary.json || true
-
-          # Stage generated outputs that may be newly created in a fresh checkout.
+          # Keep large datasets / local artifacts out of git; publish them via Releases instead.
+          # Stage smaller state/config outputs that may be newly created in a fresh checkout.
           for file in \
             data/gbif_state.json \
             data/names_edible.json \
@@ -170,13 +181,6 @@ jobs:
             data/plants_resolved_edible.json \
             data/plants_resolved_poisonous.json \
             data/taxon_cache.json \
-            data/occurrences_compact.json.gz \
-            data/occurrences_compact_edible.json.gz \
-            data/occurrences_compact_poisonous.json.gz \
-            data/occurrences_recent.json.gz \
-            data/occurrences_recent_edible.json.gz \
-            data/occurrences_recent_poisonous.json.gz \
-            data/approved_observations.json.gz \
             data/updates_summary.json \
             data/updates_summary_edible.json \
             data/updates_summary_poisonous.json; do
@@ -195,8 +199,6 @@ jobs:
           git commit -m "chore(state): daily GBIF refresh"
 
           # Sync with remote to avoid "fetch first"
-          git restore --worktree data/dwca.sqlite || true
-          rm -f data/changes_summary.json || true
           git status --short
           git fetch origin main
           git rebase origin/main
