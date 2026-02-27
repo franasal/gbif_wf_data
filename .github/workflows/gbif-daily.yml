@@ -37,7 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Restore GBIF download cache
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true') }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly) }}
         uses: actions/cache@v4
         with:
           path: .tmp_gbif
@@ -46,14 +46,14 @@ jobs:
             gbif-zip-${{ runner.os }}-
 
       - name: Restore GBIF download cache (no restore-keys; force weekly)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
         uses: actions/cache@v4
         with:
           path: .tmp_gbif
           key: gbif-zip-${{ runner.os }}-${{ github.run_id }}
 
       - name: Restore SQLite cache
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true') }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly) }}
         uses: actions/cache@v4
         with:
           path: data/dwca.sqlite
@@ -62,14 +62,14 @@ jobs:
             dwca-sqlite-${{ runner.os }}-
 
       - name: Restore SQLite cache (no restore-keys; force weekly)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
         uses: actions/cache@v4
         with:
           path: data/dwca.sqlite
           key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
 
       - name: Force Weekly - clear cached artifacts (fresh download + rebuild)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
         run: |
           set -euxo pipefail
           rm -rf .tmp_gbif
@@ -92,7 +92,7 @@ jobs:
           if [ "${{ github.event_name == 'workflow_dispatch' && inputs.download_key != '' }}" = "true" ]; then
             args+=(--download-key "${{ inputs.download_key }}")
           fi
-          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}" = "true" ]; then
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}" = "true" ]; then
             args+=(--force-weekly)
           fi
           python -u tools/run_daily_update.py "${args[@]}"
@@ -192,7 +192,7 @@ jobs:
             --out data/approved_observations.json.gz
 
       - name: Commit outputs (if changed) and push
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_outputs == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_outputs }}
         run: |
           set -euxo pipefail
 
