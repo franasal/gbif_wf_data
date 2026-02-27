@@ -68,7 +68,7 @@ jobs:
           path: data/dwca.sqlite
           key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
 
-      - name: Force Weekly: clear cached artifacts (fresh download + rebuild)
+      - name: Force Weekly - clear cached artifacts (fresh download + rebuild)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly == 'true' }}
         run: |
           set -euxo pipefail
