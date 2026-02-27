@@ -12,8 +12,15 @@ assets/plant_images/light_build/*
 __pycache__/
 *.pyc
 
-# Optional: if you do NOT want to commit the DB
-# data/dwca.sqlite
+# Local GBIF artifacts (do not commit)
+data/dwca.sqlite
+data/dwca.sqlite-*
+data/dwca.sqlite-wal
+data/dwca.sqlite-shm
+data/dwca-sqlite.zip
+
+# Generated compact datasets (keep local-only)
+data/occurrences_*.json.gz
 
 # These are generated (you can commit them or not)
 # data/plants_resolved.json

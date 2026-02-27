@@ -701,13 +701,20 @@ def main():
                 yy, mm = lo
                 last_obs_obj = {"year": int(yy), "month": (int(mm) if mm else None)}
 
+            obj_total = int(true_totals.get(sci, 0))
+            month_total = int(sum(true_month_counts[sci]))
+
             obj = {
                 "de": name_map.get(sci, ""),
                 "taxonKey": taxon_by_species.get(sci),
-                "total": int(true_totals.get(sci, 0)),
+                "total": obj_total,
                 "year_counts": yc,
                 # Seasonality must reflect all filtered GBIF rows, not sampled map points.
                 "month_counts_all": true_month_counts[sci],
+                "month_counts_all_total": month_total,
+                "month_counts_all_coverage": (
+                    round(month_total / obj_total, 6) if obj_total > 0 else None
+                ),
                 "last_obs": last_obs_obj,
                 "bbox": bbox_map[sci] if bbox_map[sci][0] is not None else None,
                 "points": pts,
@@ -717,7 +724,7 @@ def main():
                     "bucket": sampling_mode_by_species.get(sci, "fixed"),
                     "keep_per_cell": per_plant_keep_per_cell.get(sci, keep_per_cell),
                     "max_points_per_plant": per_plant_max_points.get(sci, max_points),
-                    "ratio": (round(len(pts) / obj_total, 6) if (obj_total := int(true_totals.get(sci, 0))) > 0 else None),
+                    "ratio": (round(len(pts) / obj_total, 6) if obj_total > 0 else None),
                 },
                 "observation_sources": dict(sorted(source_counts[sci].items())),
             }

@@ -183,16 +183,28 @@ def build_predicate(
                 status = str(entry.get("status") or "").upper()
                 accepted = entry.get("acceptedUsageKey")
                 usage = entry.get("usageKey") or tk
+                # GBIF occurrence downloads don't reliably expand synonyms for TAXON_KEY predicates.
+                # To avoid silently dropping taxa, include both the synonym usageKey and its
+                # acceptedUsageKey (when available).
                 if status == "SYNONYM" and accepted is not None:
-                    tk = accepted
-                else:
-                    tk = usage
+                    taxon_keys.append(str(int(usage)))
+                    taxon_keys.append(str(int(accepted)))
+                    continue
+                tk = usage
         taxon_keys.append(str(int(tk)))
 
     if not taxon_keys:
         raise RuntimeError("No taxonKeys found in resolved plant lists (resolver failed or empty names files).")
 
-    preds.append({"type": "in", "key": "TAXON_KEY", "values": taxon_keys})
+    # De-duplicate but keep stable order (helps reproducible predicates + debugging).
+    deduped = []
+    seen = set()
+    for v in taxon_keys:
+        if v in seen:
+            continue
+        seen.add(v)
+        deduped.append(v)
+    preds.append({"type": "in", "key": "TAXON_KEY", "values": deduped})
 
     y_from = cfg.get("year_from")
     y_to = cfg.get("year_to")
@@ -251,7 +263,7 @@ def download_zip(key: str, out_zip: Path) -> None:
                     f.write(chunk)
 
 
-def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool]:
+def compute_download_window(state: dict, cfg: dict, *, force_weekly: bool = False) -> tuple[str, str, int, bool]:
     today = datetime.now(timezone.utc).date()
     daily_window_days = int(cfg.get("daily_window_days", 1))
     weekly_refresh_weekday = int(cfg.get("weekly_refresh_weekday", 2))
@@ -266,7 +278,7 @@ def compute_download_window(state: dict, cfg: dict) -> tuple[str, str, int, bool
         except Exception:
             last_weekly_date = None
 
-    weekly_due = today.weekday() == weekly_refresh_weekday and last_weekly_date != today
+    weekly_due = force_weekly or (today.weekday() == weekly_refresh_weekday and last_weekly_date != today)
 
     if weekly_due and rolling_window_days > 0:
         since_dt = today - timedelta(days=rolling_window_days)
@@ -314,6 +326,11 @@ def main() -> None:
     ap.add_argument("--db-only", action="store_true", help="Run steps up to SQLite load only.")
     ap.add_argument("--export-only", action="store_true", help="Run export+stats only (requires existing data/dwca.sqlite).")
     ap.add_argument("--download-key", default=None, help="Reuse an existing GBIF download key instead of requesting a new one.")
+    ap.add_argument(
+        "--force-weekly",
+        action="store_true",
+        help="Force a weekly-style refresh window (rolling_window_days or year_from), regardless of weekday.",
+    )
     ap.add_argument("--no-prune", action="store_true", help="Skip rolling-window DB pruning after load.")
     ap.add_argument("--no-change-log", action="store_true", help="Skip writing change summary JSON.")
     args = ap.parse_args()
@@ -459,7 +476,7 @@ def main() -> None:
             resolved_prod.append(item)
         save_json(resolved_prod_path, resolved_prod)
 
-        since, window_end, window_days, weekly_due = compute_download_window(state, cfg)
+        since, window_end, window_days, weekly_due = compute_download_window(state, cfg, force_weekly=bool(args.force_weekly))
         window_label = "weekly" if weekly_due else "daily"
         window_filter_key = str(cfg.get("window_filter_key") or "EVENT_DATE").upper()
         print(
