@@ -11,6 +11,9 @@ This repository hosts a daily GBIF download + export pipeline that:
 
 The pipeline is orchestrated by GitHub Actions and driven by the scripts in `tools/`.
 
+For a project-level reference (including pre-sampling visualization and current downsampling settings), see:
+- `../GBIF_DATA_PROCESSING.md`
+
 ---
 
 ## Pipeline flow (end-to-end)
@@ -190,7 +193,7 @@ The workflow runs in two jobs:
 
 - The pipeline now writes `data/updates_summary_edible.json` and `data/updates_summary_poisonous.json`, which report newly interpreted points in the current download window for each list.
 
-### ✅ Removed legacy/unwired scripts
+### ✅ Removed unused/unwired scripts
 
 - Removed unused helper scripts (`gbif_incremental_update.py`, `run_pipeline.py`, legacy stats builders).
 

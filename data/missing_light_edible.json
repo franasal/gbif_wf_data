@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-03-05T20:12:16Z",
+  "class": "edible",
+  "expected_count": 199,
+  "present_count": 192,
+  "missing_count": 7,
+  "unknown_present_count": 0,
+  "missing": [
+    {
+      "slug": "calamintha_nepeta",
+      "scientificName": "Calamintha nepeta",
+      "allNames": [
+        "Calamintha nepeta"
+      ]
+    },
+    {
+      "slug": "chenopodium_bonus_henricus",
+      "scientificName": "Chenopodium bonus-henricus",
+      "allNames": [
+        "Chenopodium bonus-henricus"
+      ]
+    },
+    {
+      "slug": "conyza_canadensis",
+      "scientificName": "Conyza canadensis",
+      "allNames": [
+        "Conyza canadensis"
+      ]
+    },
+    {
+      "slug": "fallopia_japonica",
+      "scientificName": "Fallopia japonica",
+      "allNames": [
+        "Fallopia japonica"
+      ]
+    },
+    {
+      "slug": "hieracium_pilosella",
+      "scientificName": "Hieracium pilosella",
+      "allNames": [
+        "Hieracium pilosella"
+      ]
+    },
+    {
+      "slug": "matricaria_recutita",
+      "scientificName": "Matricaria recutita",
+      "allNames": [
+        "Matricaria recutita"
+      ]
+    },
+    {
+      "slug": "sorbus_aria",
+      "scientificName": "Sorbus aria",
+      "allNames": [
+        "Sorbus aria"
+      ]
+    }
+  ],
+  "unknown_present": []
+}

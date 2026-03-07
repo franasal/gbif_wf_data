@@ -1,0 +1,28 @@
+[
+  {
+    "scientificName": "Cicuta virosa",
+    "de": "Giftiger Wasserschierling",
+    "taxonKey": 5371864,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Cicuta virosa",
+      "scientificName": "Cicuta virosa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Juniperus sabina",
+    "de": "Sadebaum",
+    "taxonKey": 7963890,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Juniperus sabina",
+      "scientificName": "Juniperus sabina L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  }
+]
