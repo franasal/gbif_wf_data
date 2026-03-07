@@ -1,0 +1,275 @@
+[
+  {
+    "scientificName": "Betonica officinalis",
+    "de": "Heil-Ziest",
+    "taxonKey": 2927280,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Betonica officinalis",
+      "scientificName": "Betonica officinalis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Brassica rapa",
+    "de": "Rübsen",
+    "taxonKey": 7903057,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Brassica rapa",
+      "scientificName": "Brassica rapa L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Bunium bulbocastanum",
+    "de": "Echter Knollenkümmel",
+    "taxonKey": 3034501,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Bunium bulbocastanum",
+      "scientificName": "Bunium bulbocastanum L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Calamintha nepeta",
+    "de": "Echte Bergminze",
+    "taxonKey": 5341295,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Calamintha nepeta",
+      "scientificName": "Calamintha nepeta (L.) Savi",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Chenopodium bonus-henricus",
+    "de": "Guter Heinrich",
+    "taxonKey": 3083843,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Chenopodium bonus-henricus",
+      "scientificName": "Chenopodium bonus-henricus L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Conyza canadensis",
+    "de": "Kanadisches Berufkraut",
+    "taxonKey": 5404801,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Conyza canadensis",
+      "scientificName": "Conyza canadensis (L.) Cronquist",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Fallopia japonica",
+    "de": "Japanischer Flügelknöterich",
+    "taxonKey": 5334357,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fallopia japonica",
+      "scientificName": "Fallopia japonica (Houtt.) Ronse Decr.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Ficaria verna",
+    "de": "Gewöhnliches Scharbockskraut",
+    "taxonKey": 9094061,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Ficaria verna",
+      "scientificName": "Ficaria verna Huds.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Hieracium pilosella",
+    "de": "Kleines Habichtskraut",
+    "taxonKey": 3136365,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hieracium pilosella",
+      "scientificName": "Hieracium pilosella L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Hylotelephium telephium",
+    "de": "Purpur-Fetthenne",
+    "taxonKey": 2985865,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hylotelephium telephium",
+      "scientificName": "Hylotelephium telephium (L.) H.Ohba",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Matricaria recutita",
+    "de": "Echte Kamille",
+    "taxonKey": 3103774,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Matricaria recutita",
+      "scientificName": "Matricaria recutita L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Mentha spicata",
+    "de": "Ährige Minze",
+    "taxonKey": 2927175,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Mentha spicata",
+      "scientificName": "Mentha spicata L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Pinus nigra",
+    "de": "Schwarz-Kiefer",
+    "taxonKey": 5284809,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Pinus nigra",
+      "scientificName": "Pinus nigra J.F.Arnold",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rubus fruticosus",
+    "de": "Echte Brombeere",
+    "taxonKey": 8436459,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rubus fruticosus",
+      "scientificName": "Rubus fruticosus L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Rumex arifolius",
+    "de": "Berg-Sauerampfer",
+    "taxonKey": 4036273,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Rumex arifolius",
+      "scientificName": "Rumex arifolius All.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Scorzoneroides autumnalis",
+    "de": "Herbst-Löwenzahn",
+    "taxonKey": 3133512,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Scorzoneroides autumnalis",
+      "scientificName": "Scorzoneroides autumnalis (L.) Moench",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Silene flos-cuculi",
+    "de": "Kuckucks-Lichtnelke",
+    "taxonKey": 5384738,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Silene flos-cuculi",
+      "scientificName": "Silene flos-cuculi (L.) Greuter & Burdet",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sinapis arvensis",
+    "de": "Acker-Senf",
+    "taxonKey": 3047598,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sinapis arvensis",
+      "scientificName": "Sinapis arvensis L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sorbus aria",
+    "de": "Gewöhnliche Mehlbeere",
+    "taxonKey": 5015,
+    "match": {
+      "matchType": "HIGHERRANK",
+      "confidence": 100,
+      "canonicalName": "Rosaceae",
+      "scientificName": "Rosaceae",
+      "rank": "FAMILY",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "scientificName": "Sorbus torminalis",
+    "de": "Elsbeere",
+    "taxonKey": 3012567,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Sorbus torminalis",
+      "scientificName": "Sorbus torminalis (L.) Crantz",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Urtica dioica",
+    "de": "Große Brennnessel",
+    "taxonKey": 7960979,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Urtica dioica",
+      "scientificName": "Urtica dioica L.",
+      "rank": "SPECIES",
+      "status": "ACCEPTED"
+    }
+  }
+]

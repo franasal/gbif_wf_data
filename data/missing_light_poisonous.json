@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-03-05T20:12:16Z",
+  "class": "poisonous",
+  "expected_count": 11,
+  "present_count": 9,
+  "missing_count": 2,
+  "unknown_present_count": 0,
+  "missing": [
+    {
+      "slug": "cicuta_virosa",
+      "scientificName": "Cicuta virosa",
+      "allNames": [
+        "Cicuta virosa"
+      ]
+    },
+    {
+      "slug": "juniperus_sabina",
+      "scientificName": "Juniperus sabina",
+      "allNames": [
+        "Juniperus sabina"
+      ]
+    }
+  ],
+  "unknown_present": []
+}

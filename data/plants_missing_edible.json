@@ -1,0 +1,106 @@
+[
+  {
+    "scientificName": "Calamintha nepeta",
+    "de": "Echte Bergminze",
+    "taxonKey": 5341295,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Calamintha nepeta",
+      "scientificName": "Calamintha nepeta (L.) Savi",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Chamomilla recutita",
+    "de": "Echte Kamille",
+    "taxonKey": 5391086,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Chamomilla recutita",
+      "scientificName": "Chamomilla recutita (L.) Rauschert",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Chenopodium bonus-henricus",
+    "de": "Guter Heinrich",
+    "taxonKey": 3083843,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Chenopodium bonus-henricus",
+      "scientificName": "Chenopodium bonus-henricus L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Conyza canadensis",
+    "de": "Kanadisches Berufkraut",
+    "taxonKey": 5404801,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Conyza canadensis",
+      "scientificName": "Conyza canadensis (L.) Cronquist",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Fallopia japonica",
+    "de": "Japanischer Flügelknöterich",
+    "taxonKey": 5334357,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Fallopia japonica",
+      "scientificName": "Fallopia japonica (Houtt.) Ronse Decr.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Hieracium pilosella",
+    "de": "Kleines Habichtskraut",
+    "taxonKey": 3136365,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Hieracium pilosella",
+      "scientificName": "Hieracium pilosella L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Matricaria recutita",
+    "de": "Echte Kamille",
+    "taxonKey": 3103774,
+    "match": {
+      "matchType": "EXACT",
+      "confidence": 100,
+      "canonicalName": "Matricaria recutita",
+      "scientificName": "Matricaria recutita L.",
+      "rank": "SPECIES",
+      "status": "SYNONYM"
+    }
+  },
+  {
+    "scientificName": "Sorbus aria",
+    "de": "Gewöhnliche Mehlbeere",
+    "taxonKey": 5015,
+    "match": {
+      "matchType": "HIGHERRANK",
+      "confidence": 100,
+      "canonicalName": "Rosaceae",
+      "scientificName": "Rosaceae",
+      "rank": "FAMILY",
+      "status": "ACCEPTED"
+    }
+  }
+]
