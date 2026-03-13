@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 _BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
+LATEST_POINTS_RESERVED = 10
 
 
 def utc_now_iso() -> str:
@@ -241,6 +242,19 @@ def _adaptive_caps(
     if true_total <= 6000:
         return (max(base_keep_per_cell, 4), max(base_max_points, 700), "common")
     return (max(2, min(base_keep_per_cell, 3)), max(400, min(base_max_points, 600)), "very_common")
+
+
+def _point_dedup_key(
+    gbif_id_num: Optional[int],
+    latf: float,
+    lonf: float,
+    yi: Optional[int],
+    mi: Optional[int],
+    di: Optional[int],
+) -> str:
+    if gbif_id_num is not None:
+        return f"gbif:{gbif_id_num}"
+    return f"coord:{latf:.6f}|{lonf:.6f}|{yi or 0}|{mi or 0}|{di or 0}"
 
 
 def main():
@@ -493,12 +507,16 @@ def main():
             per_plant_max_points[sci] = mp
             sampling_mode_by_species[sci] = bucket
 
-        sampled_year_counts: Dict[str, Dict[str, int]] = {s: {} for s in top_species}
-        sampled_month_counts: Dict[str, List[int]] = {s: [0] * 12 for s in top_species}
-        bbox_map: Dict[str, List[Optional[float]]] = {s: [None, None, None, None] for s in top_species}
-        last_obs_map: Dict[str, Optional[Tuple[int, int]]] = {s: None for s in top_species}
+        latest_reserved = int(LATEST_POINTS_RESERVED)
+        if max_points < latest_reserved:
+            raise RuntimeError(
+                f"max_points_per_plant ({max_points}) must be >= latest reserved points ({latest_reserved})"
+            )
 
-        kept_points: Dict[str, List[list]] = {s: [] for s in top_species}
+        sampled_points: Dict[str, List[list]] = {s: [] for s in top_species}
+        latest_points: Dict[str, List[list]] = {s: [] for s in top_species}
+        latest_seen_keys: Dict[str, set[str]] = {s: set() for s in top_species}
+        sampled_seen_keys: Dict[str, set[str]] = {s: set() for s in top_species}
         source_counts: Dict[str, Dict[str, int]] = {s: defaultdict(int) for s in top_species}
         recent_points: Dict[str, List[list]] = {s: [] for s in top_species} if write_recent else {}
         done_species = set()
@@ -573,9 +591,8 @@ def main():
                 print(f"[scan] rows={scanned:,} done_plants={len(done_species)}/{len(top_species)}")
 
             sci = r["sci"]
-            if sci in done_species:
-                if not write_recent or sci in recent_done_species:
-                    continue
+            if sci in done_species and (not write_recent or sci in recent_done_species):
+                continue
 
             lat = r["lat"]
             lon = r["lon"]
@@ -643,6 +660,15 @@ def main():
                     (str(refs_url) if refs_url else None),
                 ]
             )
+            row_key = _point_dedup_key(gbif_id_num, latf, lonf, yi, mi, di)
+
+            # Always reserve true newest points first; these must survive map sampling caps.
+            latest_for_sci = latest_points[sci]
+            latest_keys_for_sci = latest_seen_keys[sci]
+            if len(latest_for_sci) < latest_reserved and row_key not in latest_keys_for_sci:
+                latest_for_sci.append(point)
+                latest_keys_for_sci.add(row_key)
+
             # Optional "recent raw" export: newest observations per plant, no geohash sampling.
             if write_recent and sci not in recent_done_species:
                 rp = recent_points[sci]
@@ -655,33 +681,22 @@ def main():
             if sci not in done_species:
                 sci_keep_per_cell = per_plant_keep_per_cell[sci]
                 sci_max_points = per_plant_max_points[sci]
+                sci_sampling_budget = max(0, sci_max_points - len(latest_points[sci]))
+                if sci_sampling_budget <= 0 and len(latest_points[sci]) >= latest_reserved:
+                    done_species.add(sci)
+                    if len(done_species) == len(top_species) and (not write_recent or len(recent_done_species) == len(top_species)):
+                        break
+                    continue
 
                 if per_cell_counts.get(key, 0) < sci_keep_per_cell:
-                    pts = kept_points[sci]
-                    if len(pts) < sci_max_points:
+                    pts = sampled_points[sci]
+                    sampled_keys_for_sci = sampled_seen_keys[sci]
+                    if len(pts) < sci_sampling_budget and row_key not in latest_seen_keys[sci] and row_key not in sampled_keys_for_sci:
                         pts.append(point)
+                        sampled_keys_for_sci.add(row_key)
                         per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
 
-                        if yi is not None:
-                            ys = str(yi)
-                            sampled_year_counts[sci][ys] = sampled_year_counts[sci].get(ys, 0) + 1
-
-                        if mi is not None:
-                            sampled_month_counts[sci][mi - 1] += 1
-
-                        bb = bbox_map[sci]
-                        if bb[0] is None:
-                            bbox_map[sci] = [latf, latf, lonf, lonf]
-                        else:
-                            bb[0] = min(bb[0], latf)
-                            bb[1] = max(bb[1], latf)
-                            bb[2] = min(bb[2], lonf)
-                            bb[3] = max(bb[3], lonf)
-
-                        if last_obs_map[sci] is None and yi is not None:
-                            last_obs_map[sci] = (yi, mi or None)
-
-                    if len(kept_points[sci]) >= sci_max_points:
+                    if len(sampled_points[sci]) >= sci_sampling_budget and len(latest_points[sci]) >= latest_reserved:
                         done_species.add(sci)
                 else:
                     # Cell quota already full.
@@ -692,10 +707,49 @@ def main():
 
         # 5) Build plant objects
         for sci in top_species:
-            pts = kept_points[sci]
-            yc = sampled_year_counts[sci]
+            reserved = latest_points[sci]
+            sampled = sampled_points[sci]
+            pts = reserved + sampled
+            sci_max_points = per_plant_max_points[sci]
+            if len(pts) > sci_max_points:
+                pts = pts[:sci_max_points]
 
-            lo = last_obs_map[sci]
+            yc: Dict[str, int] = {}
+            bb: List[Optional[float]] = [None, None, None, None]
+            lo: Optional[Tuple[int, int]] = None
+            for p in pts:
+                yi = p[2] if len(p) > 2 else None
+                mi = p[3] if len(p) > 3 else None
+                latv = p[0] if len(p) > 0 else None
+                lonv = p[1] if len(p) > 1 else None
+
+                try:
+                    if yi is not None:
+                        ys = str(int(yi))
+                        yc[ys] = yc.get(ys, 0) + 1
+                except Exception:
+                    pass
+
+                try:
+                    latf = float(latv)
+                    lonf = float(lonv)
+                    if bb[0] is None:
+                        bb = [latf, latf, lonf, lonf]
+                    else:
+                        bb[0] = min(bb[0], latf)
+                        bb[1] = max(bb[1], latf)
+                        bb[2] = min(bb[2], lonf)
+                        bb[3] = max(bb[3], lonf)
+                except Exception:
+                    pass
+
+                if lo is None:
+                    try:
+                        if yi is not None:
+                            lo = (int(yi), int(mi) if mi is not None else None)
+                    except Exception:
+                        pass
+
             last_obs_obj = None
             if lo is not None:
                 yy, mm = lo
@@ -716,7 +770,7 @@ def main():
                     round(month_total / obj_total, 6) if obj_total > 0 else None
                 ),
                 "last_obs": last_obs_obj,
-                "bbox": bbox_map[sci] if bbox_map[sci][0] is not None else None,
+                "bbox": bb if bb[0] is not None else None,
                 "points": pts,
                 "sampled_total": len(pts),
                 "sampling": {
@@ -724,6 +778,8 @@ def main():
                     "bucket": sampling_mode_by_species.get(sci, "fixed"),
                     "keep_per_cell": per_plant_keep_per_cell.get(sci, keep_per_cell),
                     "max_points_per_plant": per_plant_max_points.get(sci, max_points),
+                    "latest_reserved": latest_reserved,
+                    "latest_injected_count": min(latest_reserved, len(reserved)),
                     "ratio": (round(len(pts) / obj_total, 6) if obj_total > 0 else None),
                 },
                 "observation_sources": dict(sorted(source_counts[sci].items())),
@@ -749,6 +805,7 @@ def main():
                 "keep_per_cell": keep_per_cell,
                 "max_points_per_plant": max_points,
                 "adaptive_sampling": bool(args.adaptive_sampling),
+                "latest_points_reserved": latest_reserved,
                 "scanned_rows": scanned,
                 "points_schema": [
                     "lat",
