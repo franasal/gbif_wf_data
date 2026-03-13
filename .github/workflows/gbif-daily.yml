@@ -20,6 +20,11 @@ on:
         required: false
         default: false
         type: boolean
+      release_suffix:
+        description: "Optional release tag suffix, e.g. '-canary' => latest-canary / latest-dev-canary."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -191,6 +196,12 @@ jobs:
           python -u tools/generate_approved_observations_placeholder.py \
             --out data/approved_observations.json.gz
 
+      - name: Build protected areas asset
+        run: |
+          python -u tools/fetch_protected_areas.py \
+            --tmp-dir tmp/protected_areas_raw \
+            --output data/protected_areas_de.json.gz
+
       - name: Commit outputs (if changed) and push
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_outputs }}
         run: |
@@ -238,10 +249,17 @@ jobs:
       - name: Publish / update Release asset (latest)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SUFFIX: ${{ github.event_name == 'workflow_dispatch' && inputs.release_suffix || '' }}
         run: |
+          set -euxo pipefail
+          TAG_LATEST="latest${RELEASE_SUFFIX}"
+          TITLE_LATEST="Latest GBIF export"
+          if [ -n "${RELEASE_SUFFIX}" ]; then
+            TITLE_LATEST="${TITLE_LATEST} ${RELEASE_SUFFIX}"
+          fi
           python -u tools/publish_release_asset.py \
-            --tag latest \
-            --title "Latest GBIF export" \
+            --tag "${TAG_LATEST}" \
+            --title "${TITLE_LATEST}" \
             --notes "Auto-generated data export. Assets: compact legacy + split datasets + light packs." \
             --dataset data/occurrences_compact.json.gz \
             --dataset-edible data/occurrences_compact_edible.json.gz \
@@ -250,21 +268,30 @@ jobs:
             --recent-dataset-edible data/occurrences_recent_edible.json.gz \
             --recent-dataset-poisonous data/occurrences_recent_poisonous.json.gz \
             --approved-observations data/approved_observations.json.gz \
+            --protected-areas data/protected_areas_de.json.gz \
             --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
             --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip
 
       - name: Publish / update Release asset (latest-dev)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SUFFIX: ${{ github.event_name == 'workflow_dispatch' && inputs.release_suffix || '' }}
         run: |
+          set -euxo pipefail
+          TAG_DEV="latest-dev${RELEASE_SUFFIX}"
+          TITLE_DEV="Latest GBIF export (dev split)"
+          if [ -n "${RELEASE_SUFFIX}" ]; then
+            TITLE_DEV="${TITLE_DEV} ${RELEASE_SUFFIX}"
+          fi
           python -u tools/publish_release_asset.py \
-            --tag latest-dev \
-            --title "Latest GBIF export (dev split)" \
+            --tag "${TAG_DEV}" \
+            --title "${TITLE_DEV}" \
             --notes "Auto-generated data export (split + light packs)." \
             --dataset-edible data/occurrences_compact_edible.json.gz \
             --dataset-poisonous data/occurrences_compact_poisonous.json.gz \
             --recent-dataset-edible data/occurrences_recent_edible.json.gz \
             --recent-dataset-poisonous data/occurrences_recent_poisonous.json.gz \
             --approved-observations data/approved_observations.json.gz \
+            --protected-areas data/protected_areas_de.json.gz \
             --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
             --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip

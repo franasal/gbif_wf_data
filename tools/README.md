@@ -7,6 +7,7 @@ Active scripts in this folder:
 - `dwca_sqlite.py` - Loads DWCA `occurrence.txt` into `data/dwca.sqlite`.
 - `export_occurrences_compact.py` - Builds compact map dataset exports.
 - `export_approved_observations_from_firestore.py` - Exports approved observation overlay.
+- `fetch_protected_areas.py` - Fetches BfN protected-area layers and builds `protected_areas_de.json.gz`.
 - `generate_approved_observations_placeholder.py` - Writes a placeholder overlay when export is unavailable.
 - `publish_release_asset.py` - Publishes release assets.
 - `visualize_gbif_download.py` - Generates pre-sampling whole-download summaries and grid GeoJSON.

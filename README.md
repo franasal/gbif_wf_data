@@ -7,7 +7,8 @@ This repository hosts a daily GBIF download + export pipeline that:
 3. Loads the DWCA `occurrence.txt` into SQLite.
 4. Exports a compact JSON dataset (sampled points per plant and per cell).
 5. Produces a daily updates summary for newly interpreted points.
-6. Publishes the compact dataset as a GitHub Release asset.
+6. Builds the protected-areas asset from the official BfN map service.
+7. Publishes the compact dataset and protected-areas asset as GitHub Release assets.
 
 The pipeline is orchestrated by GitHub Actions and driven by the scripts in `tools/`.
 
@@ -98,7 +99,8 @@ For a project-level reference (including pre-sampling visualization and current 
 ### 6) Compact export (`tools/export_occurrences_compact.py`)
 
 - Uses the whitelist as **source of truth** (includes all configured plants).
-- Samples newest points per geohash cell per plant, with caps.
+- Reserves the true newest observations per plant (currently 10) so latest records are guaranteed in compact `points`.
+- Samples additional newest points per geohash cell per plant to fill remaining cap budget.
 - Outputs `data/occurrences_compact_edible.json.gz` and `data/occurrences_compact_poisonous.json.gz` with:
   - `region` (name + center)
   - `plants` (per-plant stats + sampled points)
@@ -143,6 +145,12 @@ For a project-level reference (including pre-sampling visualization and current 
 ### 7) Release publishing (`tools/publish_release_asset.py`)
 
 - Publishes `data/occurrences_compact.json.gz` (legacy/prod) plus `data/occurrences_compact_edible.json.gz` and `data/occurrences_compact_poisonous.json.gz` (dev split) as Release assets on tag `latest`.
+- Publishes `data/protected_areas_de.json.gz` as a separate legal-boundary asset on both `latest` and `latest-dev`.
+- Default tags are:
+  - `latest`
+  - `latest-dev`
+- On manual workflow runs, `release_suffix` can be provided to publish isolated test channels without touching prod/dev tags:
+  - example suffix `-canary` -> tags `latest-canary` and `latest-dev-canary`
 
 ---
 
@@ -160,7 +168,8 @@ The workflow runs in two jobs:
 2. **export_and_release** (export-only):
    - Downloads the DB artifact.
    - Runs the exporter to create `occurrences_compact_edible.json.gz` and `occurrences_compact_poisonous.json.gz`.
-   - Publishes the Release asset.
+   - Builds `protected_areas_de.json.gz` from the BfN service.
+   - Publishes the Release assets.
 
 ---
 
@@ -211,6 +220,7 @@ The workflow runs in two jobs:
 | `data/occurrences_compact.json.gz` | Compact export for legacy/prod (combined). |
 | `data/occurrences_compact_edible.json.gz` | Compact export for edible plants. |
 | `data/occurrences_compact_poisonous.json.gz` | Compact export for poisonous plants. |
+| `data/protected_areas_de.json.gz` | Published German protected-areas polygons for app-side legal filtering. |
 | `data/updates_summary.json` | Daily counts of newly interpreted points (legacy/prod combined). |
 | `data/updates_summary_edible.json` | Daily counts of newly interpreted edible points. |
 | `data/updates_summary_poisonous.json` | Daily counts of newly interpreted poisonous points. |
@@ -221,3 +231,18 @@ The workflow runs in two jobs:
 ## Notes on compatibility
 
 All optimizations were implemented to **avoid changing data format or quality**. They affect **performance and repeatability** only, while keeping the output JSON schemas unchanged.
+
+## Protected Areas Asset
+
+The protected-areas asset is intentionally separate from the GBIF occurrence exports.
+
+- Source: BfN "Schutzgebiete in Deutschland" ArcGIS service
+- Included categories:
+  - `Naturschutzgebiet`
+  - `Nationalpark`
+  - `Nationales Naturmonument`
+- Output: `data/protected_areas_de.json.gz`
+- Builder: `tools/fetch_protected_areas.py`
+- Schedule: daily in the same workflow as the compact export
+
+This separation keeps legal-boundary updates independent from biological-occurrence exports and allows the app to cache them on a separate 24-hour policy.

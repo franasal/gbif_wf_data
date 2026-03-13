@@ -65,6 +65,7 @@ def main() -> int:
     ap.add_argument("--recent-dataset-edible", default=None, help="Optional recent raw edible dataset asset path")
     ap.add_argument("--recent-dataset-poisonous", default=None, help="Optional recent raw poisonous dataset asset path")
     ap.add_argument("--approved-observations", default=None, help="Optional approved community observations overlay asset path")
+    ap.add_argument("--protected-areas", default=None, help="Optional protected areas asset path")
     ap.add_argument("--stats", default="data/stats_summary.json", help="Stats asset path (optional)")
     ap.add_argument("--thumbs-pack", default=None, help="Optional thumbs pack zip (e.g. data/thumbs_pack_latest.zip)")
     ap.add_argument("--light-pack-edible", default="assets/plant_images/light_build/edible/gbif_light_edible.zip", help="Light pack (edible) zip path")
@@ -91,6 +92,7 @@ def main() -> int:
     recent_edible = Path(args.recent_dataset_edible) if args.recent_dataset_edible else None
     recent_poisonous = Path(args.recent_dataset_poisonous) if args.recent_dataset_poisonous else None
     approved_observations = Path(args.approved_observations) if args.approved_observations else None
+    protected_areas = Path(args.protected_areas) if args.protected_areas else None
     light_edible = Path(args.light_pack_edible) if args.light_pack_edible else None
     light_poisonous = Path(args.light_pack_poisonous) if args.light_pack_poisonous else None
     stats = Path(args.stats) if args.stats else None
@@ -107,6 +109,8 @@ def main() -> int:
         upload_asset(tag, recent_poisonous, clobber=clobber)
     if approved_observations:
         upload_asset(tag, approved_observations, clobber=clobber)
+    if protected_areas:
+        upload_asset(tag, protected_areas, clobber=clobber)
     if light_edible:
         upload_asset(tag, light_edible, clobber=clobber)
     if light_poisonous:
