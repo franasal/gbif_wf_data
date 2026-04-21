@@ -213,6 +213,18 @@ jobs:
             --pipeline-run-summary data/pipeline_run_summary.json \
             --out data/pipeline_diagnostics_summary.json
 
+      - name: Build pipeline point explorer payloads
+        run: |
+          RECENT_ARG=""
+          if [ -f data/occurrences_recent.json.gz ]; then
+            RECENT_ARG="--recent data/occurrences_recent.json.gz"
+          fi
+          python -u tools/build_pipeline_point_explorer.py \
+            --compact data/occurrences_compact.json.gz \
+            --diagnostics-summary data/pipeline_diagnostics_summary.json \
+            ${RECENT_ARG} \
+            --out data/pipeline_point_explorer.json
+
       - name: Publish pipeline diagnostics summary to Firestore
         env:
           FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON }}
@@ -235,6 +247,10 @@ jobs:
             --service-account data/firebase_admin_service_account.json \
             --database-id "${FIRESTORE_DATABASE_ID}" \
             --input data/pipeline_diagnostics_summary.json
+          python -u tools/publish_pipeline_point_explorer.py \
+            --service-account data/firebase_admin_service_account.json \
+            --database-id "${FIRESTORE_DATABASE_ID}" \
+            --input data/pipeline_point_explorer.json
           rm -f data/firebase_admin_service_account.json
 
       - name: Commit outputs (if changed) and push
