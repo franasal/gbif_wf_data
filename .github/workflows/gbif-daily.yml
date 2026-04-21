@@ -41,37 +41,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Restore GBIF download cache
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly) }}
-        uses: actions/cache@v4
-        with:
-          path: .tmp_gbif
-          key: gbif-zip-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            gbif-zip-${{ runner.os }}-
-
-      - name: Restore GBIF download cache (no restore-keys; force weekly)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
-        uses: actions/cache@v4
-        with:
-          path: .tmp_gbif
-          key: gbif-zip-${{ runner.os }}-${{ github.run_id }}
-
-      - name: Restore SQLite cache
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_weekly) }}
-        uses: actions/cache@v4
-        with:
-          path: data/dwca.sqlite
-          key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            dwca-sqlite-${{ runner.os }}-
-
-      - name: Restore SQLite cache (no restore-keys; force weekly)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
-        uses: actions/cache@v4
-        with:
-          path: data/dwca.sqlite
-          key: dwca-sqlite-${{ runner.os }}-${{ github.run_id }}
+      # Intentionally do not use actions/cache here.
+      # This workflow already hands the DB to the export job via short-lived
+      # artifacts, and the cache keys previously created a new permanent cache
+      # on every run, which was the main driver of Actions storage growth.
 
       - name: Force Weekly - clear cached artifacts (fresh download + rebuild)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
