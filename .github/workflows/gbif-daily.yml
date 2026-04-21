@@ -41,10 +41,17 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Intentionally do not use actions/cache here.
-      # This workflow already hands the DB to the export job via short-lived
-      # artifacts, and the cache keys previously created a new permanent cache
-      # on every run, which was the main driver of Actions storage growth.
+      # Keep only the rolling SQLite/state checkpoint across runs.
+      # The old zip cache was the real storage hog and remains removed.
+      - name: Restore rolling SQLite checkpoint
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/dwca.sqlite
+            data/gbif_state.json
+          key: dwca-sqlite-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            dwca-sqlite-${{ runner.os }}-${{ github.ref_name }}-
 
       - name: Force Weekly - clear cached artifacts (fresh download + rebuild)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_weekly }}
@@ -81,6 +88,14 @@ jobs:
           name: dwca-sqlite
           path: data/dwca.sqlite
           retention-days: 1
+
+      - name: Save rolling SQLite checkpoint
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/dwca.sqlite
+            data/gbif_state.json
+          key: dwca-sqlite-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Upload generated state files artifact
         uses: actions/upload-artifact@v4
