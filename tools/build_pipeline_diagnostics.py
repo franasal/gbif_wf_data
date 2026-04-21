@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+import argparse
+import gzip
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+def _utc_now_iso() -> str:
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _load_json(path: Path, default: Any) -> Any:
+    if not path.exists():
+        return default
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return 0
+
+
+def _safe_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Build compact pipeline diagnostics summary for admin panel consumption.",
+    )
+    ap.add_argument("--compact", required=True)
+    ap.add_argument("--updates-summary", required=True)
+    ap.add_argument("--changes-summary", required=True)
+    ap.add_argument("--pipeline-run-summary", required=True)
+    ap.add_argument("--out", required=True)
+    args = ap.parse_args()
+
+    compact = _load_json(Path(args.compact), {})
+    updates_summary = _load_json(Path(args.updates_summary), {})
+    changes_summary = _load_json(Path(args.changes_summary), {})
+    pipeline_run_summary = _load_json(Path(args.pipeline_run_summary), {})
+
+    plants = compact.get("plants") if isinstance(compact, dict) else None
+    if not isinstance(plants, dict):
+        plants = {}
+
+    per_plant: list[dict[str, Any]] = []
+    total_raw = 0
+    total_sampled = 0
+
+    for scientific_name, payload in plants.items():
+        if not isinstance(payload, dict):
+            continue
+        raw_total = _safe_int(payload.get("total"))
+        sampled_total = _safe_int(payload.get("sampled_total"))
+        dropped = max(0, raw_total - sampled_total)
+        total_raw += raw_total
+        total_sampled += sampled_total
+
+        sampling = payload.get("sampling") if isinstance(payload.get("sampling"), dict) else {}
+        observation_sources = (
+            payload.get("observation_sources")
+            if isinstance(payload.get("observation_sources"), dict)
+            else {}
+        )
+
+        per_plant.append(
+            {
+                "scientificName": scientific_name,
+                "commonName": payload.get("de") or "",
+                "taxonKey": payload.get("taxonKey"),
+                "rawTotal": raw_total,
+                "sampledTotal": sampled_total,
+                "droppedBySampling": dropped,
+                "samplingCoverage": (
+                    round(sampled_total / raw_total, 6) if raw_total > 0 else None
+                ),
+                "latestReserved": _safe_int(sampling.get("latest_injected_count")),
+                "keepPerCell": _safe_int(sampling.get("keep_per_cell")),
+                "maxPointsPerPlant": _safe_int(sampling.get("max_points_per_plant")),
+                "samplingMode": sampling.get("mode"),
+                "samplingBucket": sampling.get("bucket"),
+                "sourceCount": len(observation_sources),
+                "observationSources": observation_sources,
+            }
+        )
+
+    per_plant.sort(
+        key=lambda row: (
+            -_safe_int(row.get("droppedBySampling")),
+            row.get("scientificName") or "",
+        )
+    )
+
+    dropped_total = max(0, total_raw - total_sampled)
+    summary = {
+        "generatedAt": _utc_now_iso(),
+        "window": {
+            "start": pipeline_run_summary.get("window_start"),
+            "end": pipeline_run_summary.get("window_end"),
+            "days": _safe_int(pipeline_run_summary.get("window_days")),
+            "label": pipeline_run_summary.get("window_label"),
+            "field": pipeline_run_summary.get("window_field"),
+            "rollingWindowDays": _safe_int(
+                pipeline_run_summary.get("rolling_window_days")
+            ),
+            "pruneCutoff": pipeline_run_summary.get("prune_cutoff"),
+        },
+        "totals": {
+            "plants": len(per_plant),
+            "rawPointsVisibleWindow": total_raw,
+            "sampledPointsShipped": total_sampled,
+            "droppedBySampling": dropped_total,
+            "samplingCoverage": (
+                round(total_sampled / total_raw, 6) if total_raw > 0 else None
+            ),
+            "newPointsInCurrentWindow": _safe_int(
+                updates_summary.get("total_new_points")
+            ),
+            "rowsNewInDbLoad": _safe_int(changes_summary.get("rows_new")),
+            "rowsUpdatedInDbLoad": _safe_int(changes_summary.get("rows_updated")),
+            "rowsScannedInDbLoad": _safe_int(changes_summary.get("rows_scanned")),
+            "rowsPrunedByRollingWindow": _safe_int(
+                pipeline_run_summary.get("pruned_rows")
+            ),
+            "dbRowsBeforePrune": _safe_int(
+                pipeline_run_summary.get("db_rows_before_prune")
+            ),
+            "dbRowsAfterPrune": _safe_int(
+                pipeline_run_summary.get("db_rows_after_prune")
+            ),
+        },
+        "changes": {
+            "fieldsChanged": changes_summary.get("fields_changed", {}),
+        },
+        "topPlantsBySamplingLoss": per_plant[:25],
+        "plants": per_plant,
+        "sources": {
+            "compactGeneratedAt": (compact.get("meta") or {}).get("generated_at"),
+            "updatesGeneratedAt": updates_summary.get("generated_at"),
+            "changesGeneratedAt": changes_summary.get("generated_at"),
+            "pipelineRunGeneratedAt": pipeline_run_summary.get("generated_at"),
+        },
+    }
+
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print(f"[ok] wrote {out_path} (plants={len(per_plant)})", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

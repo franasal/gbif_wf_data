@@ -60,6 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: legal-inventory-${{ github.run_number }}
+          retention-days: 1
           path: |
             data/legal/image_license_inventory.csv
             data/legal/image_license_inventory.json

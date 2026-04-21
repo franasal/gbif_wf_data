@@ -7,12 +7,15 @@ edible/poisonous light manifests and fills media_* fields for entries missing
 license data.
 """
 import argparse
+import csv
 import hashlib
 import json
+import subprocess
 import time
 from urllib.parse import urlsplit, urlunsplit
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import requests
 
@@ -132,13 +135,29 @@ def guess_attribution(occ: Dict[str, Any], media_obj: Dict[str, Any], license_la
 def http_get_occurrence(session: requests.Session, occ_key: str, timeout: int) -> Dict[str, Any]:
     url = f"{BASE}/occurrence/{occ_key}"
     headers = {"User-Agent": UA}
-    r = session.get(url, headers=headers, timeout=timeout)
-    if r.status_code == 404:
-        return {}
-    if r.status_code == 429 or r.status_code >= 500:
-        raise RuntimeError(f"GBIF error {r.status_code}")
-    r.raise_for_status()
-    return r.json()
+    try:
+        r = session.get(url, headers=headers, timeout=timeout)
+        if r.status_code == 404:
+            return {}
+        if r.status_code == 429 or r.status_code >= 500:
+            raise RuntimeError(f"GBIF error {r.status_code}")
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        try:
+            result = subprocess.run(
+                ["curl", "-L", "-s", "--fail-with-body", "-A", UA, url],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            stdout = result.stdout.strip()
+            if not stdout:
+                return {}
+            payload = json.loads(stdout)
+            return payload if isinstance(payload, dict) else {}
+        except Exception:
+            return {}
 
 
 def load_manifest(path: Path) -> Dict[str, Any]:
@@ -273,6 +292,39 @@ def write_manifest(path: Path, manifest: Dict[str, Any]) -> None:
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def write_manifest_csv(path: Path, manifest: Dict[str, Any]) -> None:
+    images = manifest.get("images") or []
+    if not isinstance(images, list) or not images:
+        path.write_text("", encoding="utf-8")
+        return
+    fieldnames = sorted({key for image in images if isinstance(image, dict) for key in image.keys()})
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for image in images:
+            if isinstance(image, dict):
+                writer.writerow(image)
+
+
+def refresh_zip(zip_path: Path, manifest_json: Path, manifest_csv: Path) -> None:
+    if not zip_path.exists():
+        return
+    tmp_zip = zip_path.with_suffix(f"{zip_path.suffix}.tmp")
+    with ZipFile(zip_path, "r") as src_zip, ZipFile(
+        tmp_zip,
+        "w",
+        compression=ZIP_DEFLATED,
+        allowZip64=True,
+    ) as dst_zip:
+        for info in src_zip.infolist():
+            if info.filename in {"images_manifest.json", "images_manifest.csv"}:
+                continue
+            dst_zip.writestr(info, src_zip.read(info.filename))
+        dst_zip.write(manifest_json, arcname="images_manifest.json")
+        dst_zip.write(manifest_csv, arcname="images_manifest.csv")
+    tmp_zip.replace(zip_path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Backfill missing license/creator metadata in light manifests by querying GBIF."
@@ -306,6 +358,16 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=30, help="Request timeout seconds.")
     parser.add_argument("--max-requests", type=int, default=300, help="Cap on GBIF requests.")
     parser.add_argument("--log-every", type=int, default=25, help="Log progress every N requests.")
+    parser.add_argument(
+        "--update-sibling-csv",
+        action="store_true",
+        help="Also rewrite sibling images_manifest.csv files next to the JSON manifests.",
+    )
+    parser.add_argument(
+        "--update-sibling-zips",
+        action="store_true",
+        help="Also refresh sibling gbif_light_*.zip archives with the updated manifest JSON/CSV.",
+    )
     args = parser.parse_args()
 
     edible_path = Path(args.edible_manifest)
@@ -346,11 +408,27 @@ def main() -> None:
     write_manifest(out_edible, edible)
     write_manifest(out_poisonous, poisonous)
 
+    edible_csv = out_edible.with_name("images_manifest.csv")
+    poisonous_csv = out_poisonous.with_name("images_manifest.csv")
+    if args.update_sibling_csv or args.update_sibling_zips:
+        write_manifest_csv(edible_csv, edible)
+        write_manifest_csv(poisonous_csv, poisonous)
+
+    edible_zip = out_edible.with_name("gbif_light_edible.zip")
+    poisonous_zip = out_poisonous.with_name("gbif_light_poisonous.zip")
+    if args.update_sibling_zips:
+        refresh_zip(edible_zip, out_edible, edible_csv)
+        refresh_zip(poisonous_zip, out_poisonous, poisonous_csv)
+
     summary = {
         "edible": edible_stats,
         "poisonous": poisonous_stats,
         "out_edible": str(out_edible),
         "out_poisonous": str(out_poisonous),
+        "edible_csv": str(edible_csv) if (args.update_sibling_csv or args.update_sibling_zips) else "",
+        "poisonous_csv": str(poisonous_csv) if (args.update_sibling_csv or args.update_sibling_zips) else "",
+        "edible_zip": str(edible_zip) if args.update_sibling_zips else "",
+        "poisonous_zip": str(poisonous_zip) if args.update_sibling_zips else "",
     }
     print("Done.")
     print(json.dumps(summary, indent=2))

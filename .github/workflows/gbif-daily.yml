@@ -107,13 +107,13 @@ jobs:
         with:
           name: dwca-sqlite
           path: data/dwca.sqlite
-          retention-days: 7
+          retention-days: 1
 
       - name: Upload generated state files artifact
         uses: actions/upload-artifact@v4
         with:
           name: gbif-state-files
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: ignore
           path: |
             data/gbif_state.json
@@ -125,6 +125,8 @@ jobs:
             data/plants_resolved_edible.json
             data/plants_resolved_poisonous.json
             data/taxon_cache.json
+            data/changes_summary.json
+            data/pipeline_run_summary.json
             data/updates_summary.json
             data/updates_summary_edible.json
             data/updates_summary_poisonous.json
@@ -201,6 +203,39 @@ jobs:
           python -u tools/fetch_protected_areas.py \
             --tmp-dir tmp/protected_areas_raw \
             --output data/protected_areas_de.json.gz
+
+      - name: Build pipeline diagnostics summary
+        run: |
+          python -u tools/build_pipeline_diagnostics.py \
+            --compact data/occurrences_compact.json.gz \
+            --updates-summary data/updates_summary.json \
+            --changes-summary data/changes_summary.json \
+            --pipeline-run-summary data/pipeline_run_summary.json \
+            --out data/pipeline_diagnostics_summary.json
+
+      - name: Publish pipeline diagnostics summary to Firestore
+        env:
+          FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON }}
+          FIRESTORE_DATABASE_ID: wild--forager-db
+        run: |
+          set -euxo pipefail
+          if [ -z "${FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON:-}" ]; then
+            echo "FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON not set; skipping diagnostics publish."
+            exit 0
+          fi
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          out = Path("data/firebase_admin_service_account.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(os.environ["FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON"], encoding="utf-8")
+          print(f"Wrote {out}")
+          PY
+          python -u tools/publish_pipeline_diagnostics.py \
+            --service-account data/firebase_admin_service_account.json \
+            --database-id "${FIRESTORE_DATABASE_ID}" \
+            --input data/pipeline_diagnostics_summary.json
+          rm -f data/firebase_admin_service_account.json
 
       - name: Commit outputs (if changed) and push
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_outputs }}

@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import sqlite3
 import subprocess
 import time
 import zipfile
@@ -294,8 +295,6 @@ def compute_download_window(state: dict, cfg: dict, *, force_weekly: bool = Fals
 
 
 def prune_db_by_date(db_path: Path, cutoff_date: str) -> int:
-    import sqlite3
-
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.execute("PRAGMA journal_mode=WAL;")
@@ -319,6 +318,15 @@ def prune_db_by_date(db_path: Path, cutoff_date: str) -> int:
     con.commit()
     con.close()
     return deleted
+
+
+def count_db_rows(db_path: Path) -> int:
+    con = sqlite3.connect(db_path)
+    try:
+        row = con.execute("SELECT COUNT(1) FROM occ").fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+    finally:
+        con.close()
 
 
 def main() -> None:
@@ -374,6 +382,7 @@ def main() -> None:
     updates_poisonous_path = repo / "data" / "updates_summary_poisonous.json"
     updates_summary_path = repo / "data" / "updates_summary.json"
     changes_summary_path = repo / "data" / "changes_summary.json"
+    pipeline_run_summary_path = repo / "data" / "pipeline_run_summary.json"
 
     # Scripts
     resolver = repo / "tools" / "resolve_taxa.py"
@@ -572,13 +581,38 @@ def main() -> None:
         run(load_cmd)
 
         print(f"DB ready: {db_path}", flush=True)
+        db_rows_before_prune = count_db_rows(db_path)
+        prune_cutoff = None
+        pruned_rows = 0
 
         if rolling_window_days > 0 and not args.no_prune:
             cutoff = (datetime.now(timezone.utc).date() - timedelta(days=rolling_window_days)).isoformat()
-            deleted = prune_db_by_date(db_path, cutoff)
-            print(f"Pruned rows older than {cutoff}: {deleted}", flush=True)
+            prune_cutoff = cutoff
+            pruned_rows = prune_db_by_date(db_path, cutoff)
+            print(f"Pruned rows older than {cutoff}: {pruned_rows}", flush=True)
         elif rolling_window_days > 0 and args.no_prune:
             print("Prune skipped (--no-prune).", flush=True)
+        db_rows_after_prune = count_db_rows(db_path)
+
+        save_json(
+            pipeline_run_summary_path,
+            {
+                "generated_at": utc_now_iso(),
+                "download_key": key,
+                "window_start": since,
+                "window_end": window_end,
+                "window_days": window_days,
+                "window_label": window_label,
+                "window_field": window_filter_key,
+                "rolling_window_days": rolling_window_days,
+                "prune_cutoff": prune_cutoff,
+                "pruned_rows": pruned_rows,
+                "db_rows_before_prune": db_rows_before_prune,
+                "db_rows_after_prune": db_rows_after_prune,
+                "changes_summary_path": changes_summary_path.name,
+                "updates_summary_path": updates_summary_path.name,
+            },
+        )
 
         if weekly_due:
             state["last_weekly_refresh"] = window_end

@@ -4,7 +4,9 @@ import csv
 import hashlib
 import json
 import shutil
+import subprocess
 import time
+from urllib.parse import urlsplit, urlunsplit
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -14,8 +16,15 @@ try:
 except ImportError as exc:
     raise SystemExit("Missing dependency: Pillow. Install with `pip install pillow`.") from exc
 
+try:
+    import requests
+except ImportError as exc:
+    raise SystemExit("Missing dependency: requests. Install with `pip install requests`.") from exc
+
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".gif"}
 KNOWN_PREFIXES = ["reviewed", "has_lookalike", "lookallike", "missing"]
+GBIF_BASE = "https://api.gbif.org/v1"
+GBIF_UA = "wild-forager-light-build/1.0"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = REPO_ROOT.parent
@@ -34,6 +43,66 @@ def hash_identifier(identifier: str) -> str:
     return hashlib.sha1(identifier.encode("utf-8")).hexdigest()[:16]
 
 
+def normalize_url(value: str) -> str:
+    raw = value.strip()
+    if not raw:
+        return ""
+    try:
+        parts = urlsplit(raw)
+        cleaned = urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    except Exception:
+        cleaned = raw
+    if cleaned.endswith("/") and len(cleaned) > 1:
+        cleaned = cleaned[:-1]
+    return cleaned
+
+
+def candidate_hashes(value: str) -> List[str]:
+    if not value:
+        return []
+    candidates = {value}
+    norm = normalize_url(value)
+    if norm:
+        candidates.add(norm)
+    if value.startswith("http://"):
+        candidates.add("https://" + value[len("http://") :])
+    if value.startswith("https://"):
+        candidates.add("http://" + value[len("https://") :])
+    if norm.startswith("http://"):
+        candidates.add("https://" + norm[len("http://") :])
+    if norm.startswith("https://"):
+        candidates.add("http://" + norm[len("https://") :])
+    return [hash_identifier(candidate) for candidate in candidates if candidate]
+
+
+def normalize_license_to_key(lic: Any) -> str:
+    if not lic:
+        return ""
+    s = str(lic).strip().lower()
+    if "publicdomain/zero/1.0" in s or "cc0" in s:
+        return "cc0-1.0"
+    if "creativecommons.org/licenses/by/" in s:
+        if "/4.0" in s:
+            return "cc-by-4.0"
+        if "/3.0" in s:
+            return "cc-by-3.0"
+    if "creativecommons.org/licenses/by-sa/" in s:
+        if "/4.0" in s:
+            return "cc-by-sa-4.0"
+        if "/3.0" in s:
+            return "cc-by-sa-3.0"
+    return ""
+
+
+COMMERCIAL_LICENSES = {
+    "cc0-1.0": "CC0 1.0",
+    "cc-by-4.0": "CC BY 4.0",
+    "cc-by-sa-4.0": "CC BY-SA 4.0",
+    "cc-by-3.0": "CC BY 3.0",
+    "cc-by-sa-3.0": "CC BY-SA 3.0",
+}
+
+
 def load_index_map(index_csvs: List[Path]) -> Dict[Tuple[str, str], Dict[str, Any]]:
     mapping: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for index_csv in index_csvs:
@@ -50,6 +119,78 @@ def load_index_map(index_csvs: List[Path]) -> Dict[Tuple[str, str], Dict[str, An
                 if key not in mapping:
                     mapping[key] = row
     return mapping
+
+
+def fetch_occurrence_media(
+    session: requests.Session,
+    occ_key: str,
+    timeout: int = 30,
+) -> List[Dict[str, Any]]:
+    url = f"{GBIF_BASE}/occurrence/{occ_key}"
+    payload: Dict[str, Any] | None = None
+    try:
+        response = session.get(url, headers={"User-Agent": GBIF_UA}, timeout=timeout)
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        try:
+            result = subprocess.run(
+                ["curl", "-L", "-s", "--fail-with-body", "-A", GBIF_UA, url],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            stdout = result.stdout.strip()
+            if not stdout:
+                return []
+            payload = json.loads(stdout)
+        except Exception:
+            return []
+    if not isinstance(payload, dict):
+        return []
+    media = payload.get("media") or []
+    return media if isinstance(media, list) else []
+
+
+def media_row_from_occurrence(
+    session: requests.Session,
+    occ_key: str,
+    id_hash: str,
+    cache: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    cache_key = f"{occ_key}:{id_hash}"
+    if cache_key in cache:
+        return cache[cache_key]
+    try:
+        media_list = fetch_occurrence_media(session, occ_key)
+    except Exception:
+        cache[cache_key] = {}
+        return {}
+    for media in media_list:
+        if not isinstance(media, dict):
+            continue
+        identifier = str(media.get("identifier") or "").strip()
+        references = str(media.get("references") or "").strip()
+        hashes = set(candidate_hashes(identifier) + candidate_hashes(references))
+        if id_hash not in hashes:
+            continue
+        license_url = str(media.get("license") or "").strip()
+        license_key = normalize_license_to_key(license_url)
+        row = {
+            "media_identifier": identifier,
+            "media_license_key": license_key,
+            "media_license_label": COMMERCIAL_LICENSES.get(license_key, ""),
+            "media_license_url": license_url,
+            "media_creator": str(media.get("creator") or ""),
+            "media_rightsHolder": str(media.get("rightsHolder") or ""),
+            "media_references": references or identifier,
+        }
+        cache[cache_key] = row
+        return row
+    cache[cache_key] = {}
+    return {}
 
 
 def parse_filename(path: Path) -> Optional[Tuple[str, str]]:
@@ -158,6 +299,8 @@ def build_class(
         safe_clean_dir(out_root)
 
     images: List[Dict[str, Any]] = []
+    gbif_session = requests.Session()
+    gbif_media_cache: Dict[str, Dict[str, Any]] = {}
 
     plant_dirs = [p for p in source_root.iterdir() if p.is_dir()]
     for plant_dir in sorted(plant_dirs):
@@ -178,6 +321,13 @@ def build_class(
             if parsed:
                 occ_key, id_hash = parsed
                 meta_row = index_map.get((occ_key, id_hash), {})
+                if not meta_row:
+                    meta_row = media_row_from_occurrence(
+                        gbif_session,
+                        occ_key,
+                        id_hash,
+                        gbif_media_cache,
+                    )
 
             out_name = f"{src.stem}.webp"
             dst = out_root / plant_dir.name / out_name

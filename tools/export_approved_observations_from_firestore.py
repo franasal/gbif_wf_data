@@ -3,7 +3,7 @@ import argparse
 import gzip
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import firebase_admin
@@ -54,6 +54,30 @@ def _to_iso(value: Any) -> str | None:
     return None
 
 
+def _to_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except Exception:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    if hasattr(value, "astimezone"):
+        try:
+            return value.astimezone(timezone.utc)
+        except Exception:
+            return None
+    return None
+
+
 def _prune_none(obj: Any) -> Any:
     if isinstance(obj, dict):
         out: dict[str, Any] = {}
@@ -68,6 +92,47 @@ def _prune_none(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_prune_none(v) for v in obj if _prune_none(v) is not None]
     return obj
+
+
+def _normalize_name(value: Any) -> str | None:
+    text = _non_empty(value)
+    if text is None:
+        return None
+    return " ".join(text.lower().split())
+
+
+def _load_bundle_identity_index(bundle_path: str) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    by_plant_id: dict[str, dict[str, Any]] = {}
+    by_name: dict[str, dict[str, Any]] = {}
+    try:
+        with open(bundle_path, "r", encoding="utf-8") as handle:
+            decoded = json.load(handle)
+    except Exception:
+        return by_plant_id, by_name
+
+    plants = decoded.get("plants")
+    if not isinstance(plants, list):
+        return by_plant_id, by_name
+
+    for plant in plants:
+        if not isinstance(plant, dict):
+            continue
+        identity = {
+            "taxonKey": plant.get("taxonKey"),
+            "scientificName": _non_empty(plant.get("scientificName")),
+        }
+        plant_id = _non_empty(plant.get("id"))
+        if plant_id is not None:
+            by_plant_id[plant_id] = identity
+        for candidate in (
+            plant.get("scientificName"),
+            plant.get("commonName"),
+            plant.get("de"),
+        ):
+            normalized = _normalize_name(candidate)
+            if normalized is not None and normalized not in by_name:
+                by_name[normalized] = identity
+    return by_plant_id, by_name
 
 
 def _load_trigger(
@@ -130,6 +195,8 @@ def main() -> int:
     ap.add_argument("--trigger-doc", default="publish_approved_observations")
     ap.add_argument("--require-trigger", action="store_true")
     ap.add_argument("--mark-trigger-processed", action="store_true")
+    ap.add_argument("--bundle-path", default="../assets/data/plants_bundle.json")
+    ap.add_argument("--rolling-window-days", type=int, default=1095)
     args = ap.parse_args()
 
     cred = credentials.Certificate(args.service_account)
@@ -148,6 +215,8 @@ def main() -> int:
             return 0
 
     statuses = _status_values(args.statuses)
+    by_plant_id, by_name = _load_bundle_identity_index(args.bundle_path)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=args.rolling_window_days)
     by_id: dict[str, dict[str, Any]] = {}
     for status in statuses:
         query = db.collection("observations").where("status", "==", status)
@@ -166,16 +235,39 @@ def main() -> int:
         plant_name = _non_empty(data.get("plantName"))
         if not plant_id and not plant_name:
             continue
+        scientific_name = _non_empty(data.get("scientificName"))
+        taxon_key = data.get("taxonKey")
+        resolved = None
+        if plant_id and plant_id in by_plant_id:
+            resolved = by_plant_id[plant_id]
+        elif scientific_name:
+            resolved = by_name.get(_normalize_name(scientific_name) or "")
+        elif plant_name:
+            resolved = by_name.get(_normalize_name(plant_name) or "")
+        if resolved is not None:
+            if taxon_key is None:
+                taxon_key = resolved.get("taxonKey")
+            if scientific_name is None:
+                scientific_name = _non_empty(resolved.get("scientificName"))
+
+        observed_at = _to_iso(data.get("observedAt"))
+        event_date = _to_iso(data.get("eventDate"))
+        comparable_date = _to_datetime(observed_at) or _to_datetime(event_date)
+        if comparable_date is not None and comparable_date < cutoff:
+            continue
 
         created_by = data.get("createdBy") if isinstance(data.get("createdBy"), dict) else {}
         obs = {
-            "id": _non_empty(data.get("_id")),
+            "sourceObservationId": _non_empty(data.get("_id")),
+            "source": "wild_forager_approved",
             "plantId": plant_id,
             "plantName": plant_name,
+            "scientificName": scientific_name,
+            "taxonKey": taxon_key,
             "lat": lat,
             "lon": lon,
-            "observedAt": _to_iso(data.get("observedAt")),
-            "eventDate": _to_iso(data.get("eventDate")),
+            "observedAt": observed_at,
+            "eventDate": event_date,
             "status": _non_empty(data.get("status")) or "approved",
             "createdBy": {
                 "uid": _non_empty(created_by.get("uid")),
@@ -204,9 +296,10 @@ def main() -> int:
         "meta": {
             "generated_at": _now_iso(),
             "source": "firestore-approved-export",
-            "schema_version": 1,
+            "schema_version": 2,
             "count": len(observations),
             "statuses": statuses,
+            "rolling_window_days": args.rolling_window_days,
         },
     }
 
