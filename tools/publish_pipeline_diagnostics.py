@@ -15,6 +15,7 @@ def main() -> int:
     ap.add_argument("--database-id", default="(default)")
     ap.add_argument("--input", required=True)
     ap.add_argument("--document-id", default="pipeline_diagnostics_summary")
+    ap.add_argument("--history-collection", default="admin_pipeline_runs")
     args = ap.parse_args()
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
@@ -29,8 +30,25 @@ def main() -> int:
         },
         merge=True,
     )
+    run_doc_id = (
+        str(payload.get("generatedAt") or "")
+        .replace(":", "-")
+        .replace(".", "-")
+    )
+    db.collection(args.history_collection).document(run_doc_id).set(
+        {
+            "generatedAt": payload.get("generatedAt"),
+            "window": payload.get("window"),
+            "totals": payload.get("totals"),
+            "changes": payload.get("changes"),
+            "source": "gbif_daily_pipeline",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
     print(
-        f"[ok] published pipeline diagnostics to admin_overrides/{args.document_id}",
+        f"[ok] published pipeline diagnostics to admin_overrides/{args.document_id} "
+        f"and {args.history_collection}/{run_doc_id}",
         flush=True,
     )
     return 0

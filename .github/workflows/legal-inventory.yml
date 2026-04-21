@@ -6,7 +6,7 @@ on:
     paths:
       - "assets/plant_images/gbif_samples/index.json"
       - "assets/plant_images/light_build/images_manifest.json"
-      - "tools/publish_image_license_inventory.py"
+      - "tools/legacy/publish_image_license_inventory.py"
       - ".github/workflows/legal-inventory.yml"
   workflow_dispatch:
     inputs:
@@ -49,12 +49,12 @@ jobs:
 
       - name: Build inventory
         run: |
-          python tools/publish_image_license_inventory.py
+          python tools/legacy/publish_image_license_inventory.py
 
       - name: Optional quality gate
         if: ${{ github.event_name == 'push' || inputs.fail_on_missing_license }}
         run: |
-          python tools/publish_image_license_inventory.py --fail-on-missing-license
+          python tools/legacy/publish_image_license_inventory.py --fail-on-missing-license
 
       - name: Upload inventory artifacts
         uses: actions/upload-artifact@v4
@@ -74,7 +74,7 @@ jobs:
             env.FIREBASE_SERVICE_ACCOUNT_JSON != ''
           }}
         run: |
-          python tools/publish_image_license_inventory.py --publish
+          python tools/legacy/publish_image_license_inventory.py --publish
 
       - name: Publish skipped notice
         if: >-
