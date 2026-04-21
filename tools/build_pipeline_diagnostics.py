@@ -47,6 +47,7 @@ def main() -> int:
     ap.add_argument("--updates-summary", required=True)
     ap.add_argument("--changes-summary", required=True)
     ap.add_argument("--pipeline-run-summary", required=True)
+    ap.add_argument("--loss-report", required=True)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -54,6 +55,7 @@ def main() -> int:
     updates_summary = _load_json(Path(args.updates_summary), {})
     changes_summary = _load_json(Path(args.changes_summary), {})
     pipeline_run_summary = _load_json(Path(args.pipeline_run_summary), {})
+    loss_report = _load_json(Path(args.loss_report), {})
 
     plants = compact.get("plants") if isinstance(compact, dict) else None
     if not isinstance(plants, dict):
@@ -62,12 +64,19 @@ def main() -> int:
     per_plant: list[dict[str, Any]] = []
     total_raw = 0
     total_sampled = 0
+    loss_by_sci = {}
+    for row in loss_report.get("plants", []):
+        if isinstance(row, dict) and row.get("scientificName"):
+            loss_by_sci[row["scientificName"]] = row
 
     for scientific_name, payload in plants.items():
         if not isinstance(payload, dict):
             continue
-        raw_total = _safe_int(payload.get("total"))
-        sampled_total = _safe_int(payload.get("sampled_total"))
+        loss_row = loss_by_sci.get(scientific_name, {})
+        raw_total = _safe_int(loss_row.get("rawTotal", payload.get("total")))
+        sampled_total = _safe_int(
+            loss_row.get("shippedTotal", payload.get("sampled_total"))
+        )
         dropped = max(0, raw_total - sampled_total)
         total_raw += raw_total
         total_sampled += sampled_total
@@ -97,6 +106,17 @@ def main() -> int:
                 "samplingBucket": sampling.get("bucket"),
                 "sourceCount": len(observation_sources),
                 "observationSources": observation_sources,
+                "droppedByDuplicate": _safe_int(
+                    (loss_row.get("dropReasonCounts") or {}).get("dropped_duplicate")
+                ),
+                "droppedByCellQuota": _safe_int(
+                    (loss_row.get("dropReasonCounts") or {}).get("dropped_cell_quota")
+                ),
+                "droppedByGlobalCap": _safe_int(
+                    (loss_row.get("dropReasonCounts") or {}).get("dropped_global_cap")
+                ),
+                "dropReasonCounts": loss_row.get("dropReasonCounts") or {},
+                "droppedPointsSampleCount": len(loss_row.get("droppedPointsSample") or []),
             }
         )
 
@@ -108,6 +128,7 @@ def main() -> int:
     )
 
     dropped_total = max(0, total_raw - total_sampled)
+    loss_totals = loss_report.get("totals") if isinstance(loss_report.get("totals"), dict) else {}
     summary = {
         "generatedAt": _utc_now_iso(),
         "window": {
@@ -126,6 +147,11 @@ def main() -> int:
             "rawPointsVisibleWindow": total_raw,
             "sampledPointsShipped": total_sampled,
             "droppedBySampling": dropped_total,
+            "keptLatestReserved": _safe_int(loss_totals.get("kept_latest_reserved")),
+            "keptGeohashSample": _safe_int(loss_totals.get("kept_geohash_sample")),
+            "droppedByDuplicate": _safe_int(loss_totals.get("dropped_duplicate")),
+            "droppedByCellQuota": _safe_int(loss_totals.get("dropped_cell_quota")),
+            "droppedByGlobalCap": _safe_int(loss_totals.get("dropped_global_cap")),
             "samplingCoverage": (
                 round(total_sampled / total_raw, 6) if total_raw > 0 else None
             ),
@@ -145,6 +171,11 @@ def main() -> int:
                 pipeline_run_summary.get("db_rows_after_prune")
             ),
         },
+        "dropReasons": {
+            "dropped_duplicate": _safe_int(loss_totals.get("dropped_duplicate")),
+            "dropped_cell_quota": _safe_int(loss_totals.get("dropped_cell_quota")),
+            "dropped_global_cap": _safe_int(loss_totals.get("dropped_global_cap")),
+        },
         "changes": {
             "fieldsChanged": changes_summary.get("fields_changed", {}),
         },
@@ -155,6 +186,7 @@ def main() -> int:
             "updatesGeneratedAt": updates_summary.get("generated_at"),
             "changesGeneratedAt": changes_summary.get("generated_at"),
             "pipelineRunGeneratedAt": pipeline_run_summary.get("generated_at"),
+            "lossReportGeneratedAt": loss_report.get("generatedAt"),
         },
     }
 

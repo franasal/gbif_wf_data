@@ -8,7 +8,7 @@ import sys
 import traceback
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 _BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
 LATEST_POINTS_RESERVED = 10
@@ -257,6 +257,34 @@ def _point_dedup_key(
     return f"coord:{latf:.6f}|{lonf:.6f}|{yi or 0}|{mi or 0}|{di or 0}"
 
 
+def _point_to_obj(
+    point: List[object],
+    *,
+    scientific_name: str,
+    common_name: str,
+    taxon_key: Optional[int],
+    cell: Optional[str] = None,
+    drop_reason: Optional[str] = None,
+) -> Dict[str, object]:
+    return {
+        "scientificName": scientific_name,
+        "commonName": common_name,
+        "taxonKey": taxon_key,
+        "lat": point[0] if len(point) > 0 else None,
+        "lon": point[1] if len(point) > 1 else None,
+        "year": point[2] if len(point) > 2 else None,
+        "month": point[3] if len(point) > 3 else None,
+        "gbifId": point[4] if len(point) > 4 else None,
+        "sourceLabel": point[5] if len(point) > 5 else None,
+        "datasetName": point[6] if len(point) > 6 else None,
+        "mediaImageUrl": point[7] if len(point) > 7 else None,
+        "mediaSourcePageUrl": point[8] if len(point) > 8 else None,
+        "occurrenceReferenceUrl": point[9] if len(point) > 9 else None,
+        "cell": cell,
+        "dropReason": drop_reason,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description="Export sparse occurrences JSON: newest N per cell, hotspot-capped.")
     ap.add_argument("--db", required=True)
@@ -293,6 +321,17 @@ def main():
     ap.add_argument("--names-json", default=None)
     ap.add_argument("--taxon-cache", default=None, help="Optional taxon cache JSON for synonym -> acceptedUsageKey.")
     ap.add_argument("--images-index", default=None)
+    ap.add_argument(
+        "--loss-report-out",
+        default=None,
+        help="Optional JSON path to write per-run sampling loss diagnostics.",
+    )
+    ap.add_argument(
+        "--loss-report-sample-per-plant",
+        type=int,
+        default=30,
+        help="Max dropped-point samples to retain per plant in --loss-report-out.",
+    )
     ap.add_argument("--gzip", action="store_true")
     ap.add_argument("--debug", action="store_true")
     ap.add_argument("--progress-every", type=int, default=0, help="Print progress every N rows scanned")
@@ -518,6 +557,18 @@ def main():
         latest_seen_keys: Dict[str, set[str]] = {s: set() for s in top_species}
         sampled_seen_keys: Dict[str, set[str]] = {s: set() for s in top_species}
         source_counts: Dict[str, Dict[str, int]] = {s: defaultdict(int) for s in top_species}
+        loss_sample_limit = max(0, int(args.loss_report_sample_per_plant or 0))
+        loss_counts: Dict[str, Dict[str, int]] = {
+            s: {
+                "kept_latest_reserved": 0,
+                "kept_geohash_sample": 0,
+                "dropped_duplicate": 0,
+                "dropped_cell_quota": 0,
+                "dropped_global_cap": 0,
+            }
+            for s in top_species
+        }
+        dropped_point_samples: Dict[str, List[dict[str, object]]] = {s: [] for s in top_species}
         recent_points: Dict[str, List[list]] = {s: [] for s in top_species} if write_recent else {}
         done_species = set()
         recent_done_species = set()
@@ -591,7 +642,7 @@ def main():
                 print(f"[scan] rows={scanned:,} done_plants={len(done_species)}/{len(top_species)}")
 
             sci = r["sci"]
-            if sci in done_species and (not write_recent or sci in recent_done_species):
+            if not sci or sci not in loss_counts:
                 continue
 
             lat = r["lat"]
@@ -661,13 +712,38 @@ def main():
                 ]
             )
             row_key = _point_dedup_key(gbif_id_num, latf, lonf, yi, mi, di)
+            common_name = name_map.get(sci, "")
+            taxon_key = taxon_by_species.get(sci)
+
+            def mark_drop(reason: str) -> None:
+                loss_counts[sci][reason] += 1
+                if loss_sample_limit <= 0:
+                    return
+                samples = dropped_point_samples[sci]
+                if len(samples) >= loss_sample_limit:
+                    return
+                samples.append(
+                    _point_to_obj(
+                        point,
+                        scientific_name=sci,
+                        common_name=common_name,
+                        taxon_key=taxon_key,
+                        cell=cell,
+                        drop_reason=reason,
+                    )
+                )
 
             # Always reserve true newest points first; these must survive map sampling caps.
             latest_for_sci = latest_points[sci]
             latest_keys_for_sci = latest_seen_keys[sci]
-            if len(latest_for_sci) < latest_reserved and row_key not in latest_keys_for_sci:
+            sampled_keys_for_sci = sampled_seen_keys[sci]
+            already_seen = row_key in latest_keys_for_sci or row_key in sampled_keys_for_sci
+            was_reserved = False
+            if len(latest_for_sci) < latest_reserved and not already_seen:
                 latest_for_sci.append(point)
                 latest_keys_for_sci.add(row_key)
+                loss_counts[sci]["kept_latest_reserved"] += 1
+                was_reserved = True
 
             # Optional "recent raw" export: newest observations per plant, no geohash sampling.
             if write_recent and sci not in recent_done_species:
@@ -682,28 +758,32 @@ def main():
                 sci_keep_per_cell = per_plant_keep_per_cell[sci]
                 sci_max_points = per_plant_max_points[sci]
                 sci_sampling_budget = max(0, sci_max_points - len(latest_points[sci]))
-                if sci_sampling_budget <= 0 and len(latest_points[sci]) >= latest_reserved:
+                if was_reserved:
+                    if len(sampled_points[sci]) >= sci_sampling_budget and len(latest_points[sci]) >= latest_reserved:
+                        done_species.add(sci)
+                elif already_seen:
+                    mark_drop("dropped_duplicate")
+                elif sci_sampling_budget <= 0 and len(latest_points[sci]) >= latest_reserved:
+                    mark_drop("dropped_global_cap")
                     done_species.add(sci)
-                    if len(done_species) == len(top_species) and (not write_recent or len(recent_done_species) == len(top_species)):
-                        break
-                    continue
-
-                if per_cell_counts.get(key, 0) < sci_keep_per_cell:
+                elif per_cell_counts.get(key, 0) < sci_keep_per_cell:
                     pts = sampled_points[sci]
-                    sampled_keys_for_sci = sampled_seen_keys[sci]
-                    if len(pts) < sci_sampling_budget and row_key not in latest_seen_keys[sci] and row_key not in sampled_keys_for_sci:
+                    if len(pts) < sci_sampling_budget:
                         pts.append(point)
                         sampled_keys_for_sci.add(row_key)
                         per_cell_counts[key] = per_cell_counts.get(key, 0) + 1
+                        loss_counts[sci]["kept_geohash_sample"] += 1
+                    else:
+                        mark_drop("dropped_global_cap")
 
                     if len(sampled_points[sci]) >= sci_sampling_budget and len(latest_points[sci]) >= latest_reserved:
                         done_species.add(sci)
                 else:
-                    # Cell quota already full.
-                    pass
-
-            if len(done_species) == len(top_species) and (not write_recent or len(recent_done_species) == len(top_species)):
-                break
+                    mark_drop("dropped_cell_quota")
+            elif not was_reserved and already_seen:
+                mark_drop("dropped_duplicate")
+            elif not was_reserved:
+                mark_drop("dropped_global_cap")
 
         # 5) Build plant objects
         for sci in top_species:
@@ -783,6 +863,7 @@ def main():
                     "ratio": (round(len(pts) / obj_total, 6) if obj_total > 0 else None),
                 },
                 "observation_sources": dict(sorted(source_counts[sci].items())),
+                "loss_counts": dict(loss_counts[sci]),
             }
 
             if sci in images_map:
@@ -823,6 +904,62 @@ def main():
         }
 
         write_output(args.out, out, gzip_enabled=bool(args.gzip))
+        if args.loss_report_out:
+            plants_loss: List[Dict[str, Any]] = []
+            totals = {
+                "plants": len(top_species),
+                "raw_points_visible_window": 0,
+                "kept_latest_reserved": 0,
+                "kept_geohash_sample": 0,
+                "shipped_points": 0,
+                "dropped_duplicate": 0,
+                "dropped_cell_quota": 0,
+                "dropped_global_cap": 0,
+                "dropped_total": 0,
+            }
+            for sci in top_species:
+                counts = dict(loss_counts[sci])
+                raw_total = int(true_totals.get(sci, 0))
+                shipped_total = counts["kept_latest_reserved"] + counts["kept_geohash_sample"]
+                dropped_total = max(0, raw_total - shipped_total)
+                plant_loss = {
+                    "scientificName": sci,
+                    "commonName": name_map.get(sci, ""),
+                    "taxonKey": taxon_by_species.get(sci),
+                    "rawTotal": raw_total,
+                    "shippedTotal": shipped_total,
+                    "droppedTotal": dropped_total,
+                    "dropReasonCounts": counts,
+                    "sampling": {
+                        "mode": ("adaptive" if args.adaptive_sampling else "fixed"),
+                        "bucket": sampling_mode_by_species.get(sci, "fixed"),
+                        "keep_per_cell": per_plant_keep_per_cell.get(sci, keep_per_cell),
+                        "max_points_per_plant": per_plant_max_points.get(sci, max_points),
+                        "latest_reserved": latest_reserved,
+                    },
+                    "droppedPointsSample": dropped_point_samples[sci],
+                }
+                plants_loss.append(plant_loss)
+                totals["raw_points_visible_window"] += raw_total
+                totals["kept_latest_reserved"] += counts["kept_latest_reserved"]
+                totals["kept_geohash_sample"] += counts["kept_geohash_sample"]
+                totals["shipped_points"] += shipped_total
+                totals["dropped_duplicate"] += counts["dropped_duplicate"]
+                totals["dropped_cell_quota"] += counts["dropped_cell_quota"]
+                totals["dropped_global_cap"] += counts["dropped_global_cap"]
+                totals["dropped_total"] += dropped_total
+            loss_out = {
+                "generatedAt": utc_now_iso(),
+                "source": os.path.basename(args.db),
+                "window": {
+                    "country": args.country or None,
+                    "year_from": args.year_from,
+                    "year_to": args.year_to,
+                },
+                "totals": totals,
+                "plants": plants_loss,
+            }
+            write_output(args.loss_report_out, loss_out, gzip_enabled=False)
         if write_recent:
             recent_plants_out: Dict[str, dict] = {}
             for sci in top_species:

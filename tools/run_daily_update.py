@@ -627,7 +627,12 @@ def main() -> None:
         if not db_path.exists():
             raise SystemExit(f"Missing DB: {db_path} (did you run db-only job / restore cache/artifact?)")
 
-        def build_export_args(out_path: Path, names_path: Path) -> list[str]:
+        def build_export_args(
+            out_path: Path,
+            names_path: Path,
+            *,
+            loss_report_path: Path | None = None,
+        ) -> list[str]:
             args = [
                 "python", "-u", str(exporter),
                 "--db", str(db_path),
@@ -650,6 +655,11 @@ def main() -> None:
                     "--recent-max-points-per-plant",
                     str(recent_max),
                 ]
+            if loss_report_path is not None:
+                args += [
+                    "--loss-report-out",
+                    str(loss_report_path),
+                ]
 
             if country:
                 args += ["--country", str(country)]
@@ -668,7 +678,13 @@ def main() -> None:
 
         run(build_export_args(export_edible_out, names_edible_path))
         run(build_export_args(export_poisonous_out, names_poisonous_path))
-        run(build_export_args(export_prod_out, names_prod_path))
+        run(
+            build_export_args(
+                export_prod_out,
+                names_prod_path,
+                loss_report_path=repo / "data" / "pipeline_loss_report.json",
+            )
+        )
 
         # Advance state ONLY after export success
         new_state = dict(state)

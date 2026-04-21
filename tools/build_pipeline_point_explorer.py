@@ -72,12 +72,14 @@ def main() -> int:
     )
     ap.add_argument("--compact", required=True)
     ap.add_argument("--diagnostics-summary", required=True)
+    ap.add_argument("--loss-report", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--recent", default="")
     args = ap.parse_args()
 
     compact = _load_json(Path(args.compact), {})
     diagnostics_summary = _load_json(Path(args.diagnostics_summary), {})
+    loss_report = _load_json(Path(args.loss_report), {})
     recent = _load_json(Path(args.recent), {}) if args.recent else {}
 
     compact_plants = compact.get("plants") if isinstance(compact, dict) else None
@@ -91,6 +93,10 @@ def main() -> int:
     for row in diagnostics_summary.get("plants", []):
         if isinstance(row, dict) and row.get("scientificName"):
             diagnostics_by_sci[row["scientificName"]] = row
+    loss_by_sci = {}
+    for row in loss_report.get("plants", []):
+        if isinstance(row, dict) and row.get("scientificName"):
+            loss_by_sci[row["scientificName"]] = row
 
     index_plants: list[dict[str, Any]] = []
     detail_docs: dict[str, dict[str, Any]] = {}
@@ -101,6 +107,7 @@ def main() -> int:
         taxon_key = compact_payload.get("taxonKey")
         doc_id = _normalize_doc_id(scientific_name, taxon_key)
         diag = diagnostics_by_sci.get(scientific_name, {})
+        loss_row = loss_by_sci.get(scientific_name, {})
         compact_points = compact_payload.get("points")
         compact_points = compact_points if isinstance(compact_points, list) else []
         recent_payload = recent_plants.get(scientific_name, {})
@@ -144,6 +151,8 @@ def main() -> int:
             "recentMissingPoints": recent_missing_points,
             "recentRawAvailable": bool(recent_points),
             "recentRawPointCount": len(recent_points),
+            "dropReasonCounts": loss_row.get("dropReasonCounts") or {},
+            "droppedPointsSample": loss_row.get("droppedPointsSample") or [],
         }
         detail_docs[doc_id] = detail_payload
         index_plants.append(

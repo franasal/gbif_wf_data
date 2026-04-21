@@ -184,6 +184,7 @@ jobs:
             --updates-summary data/updates_summary.json \
             --changes-summary data/changes_summary.json \
             --pipeline-run-summary data/pipeline_run_summary.json \
+            --loss-report data/pipeline_loss_report.json \
             --out data/pipeline_diagnostics_summary.json
 
       - name: Build pipeline point explorer payloads
@@ -195,6 +196,7 @@ jobs:
           python -u tools/build_pipeline_point_explorer.py \
             --compact data/occurrences_compact.json.gz \
             --diagnostics-summary data/pipeline_diagnostics_summary.json \
+            --loss-report data/pipeline_loss_report.json \
             ${RECENT_ARG} \
             --out data/pipeline_point_explorer.json
 
