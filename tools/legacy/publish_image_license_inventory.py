@@ -333,7 +333,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--light-manifest-json",
-        default="assets/plant_images/light_build/images_manifest.json",
+        action="append",
+        default=[],
+        help=(
+            "Optional light manifest JSON path. Repeat for multiple manifests. "
+            "If omitted, the script uses the split curated manifests when present."
+        ),
     )
     parser.add_argument(
         "--out-csv",
@@ -373,7 +378,12 @@ def main() -> int:
     args = parser.parse_args()
 
     gbif_index = Path(args.gbif_index_json)
-    light_manifest = Path(args.light_manifest_json)
+    light_manifest_args = [Path(p) for p in (args.light_manifest_json or []) if str(p).strip()]
+    default_light_manifests = [
+        Path("assets/plant_images/light_build/edible/images_manifest.json"),
+        Path("assets/plant_images/light_build/poisonous/images_manifest.json"),
+    ]
+    light_manifests = light_manifest_args or [p for p in default_light_manifests if p.is_file()]
     out_csv = Path(args.out_csv)
     out_json = Path(args.out_json)
     out_todo_json = Path(args.out_todo_json)
@@ -385,10 +395,14 @@ def main() -> int:
 
     if not gbif_index.is_file():
         raise SystemExit(f"Missing file: {gbif_index}")
-    if not light_manifest.is_file():
-        raise SystemExit(f"Missing file: {light_manifest}")
 
-    rows = _rows_from_gbif_samples(gbif_index) + _rows_from_light_manifest(light_manifest)
+    missing_light = [str(path) for path in light_manifest_args if not path.is_file()]
+    if missing_light:
+        raise SystemExit(f"Missing file(s): {', '.join(missing_light)}")
+
+    rows = _rows_from_gbif_samples(gbif_index)
+    for light_manifest in light_manifests:
+        rows += _rows_from_light_manifest(light_manifest)
     _write_csv(out_csv, rows)
 
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -400,7 +414,7 @@ def main() -> int:
         "stats": _stats(rows, required_types),
         "sourceFiles": {
             "gbifIndexJson": str(gbif_index),
-            "lightManifestJson": str(light_manifest),
+            "lightManifestJsons": [str(path) for path in light_manifests],
         },
         "artifacts": {
             "csvPath": str(out_csv),
