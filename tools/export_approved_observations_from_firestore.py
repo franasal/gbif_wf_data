@@ -102,6 +102,7 @@ def _normalize_name(value: Any) -> str | None:
 
 
 def _load_bundle_identity_index(bundle_path: str) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Load plant identity index from plants_bundle.json (Flutter app asset format)."""
     by_plant_id: dict[str, dict[str, Any]] = {}
     by_name: dict[str, dict[str, Any]] = {}
     try:
@@ -132,6 +133,46 @@ def _load_bundle_identity_index(bundle_path: str) -> tuple[dict[str, dict[str, A
             normalized = _normalize_name(candidate)
             if normalized is not None and normalized not in by_name:
                 by_name[normalized] = identity
+    return by_plant_id, by_name
+
+
+def _load_resolved_plants_index(
+    resolved_paths: list[str],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Load plant identity index from plants_resolved_*.json (flat list format used by the pipeline).
+
+    Each entry: {"scientificName": "...", "taxonKey": 123456, ...}
+    The plant id is derived as "<genus>_<species>" matching the Dart _fallbackId logic.
+    """
+    by_plant_id: dict[str, dict[str, Any]] = {}
+    by_name: dict[str, dict[str, Any]] = {}
+    for path in resolved_paths:
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                entries = json.load(handle)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                taxon_key = entry.get("taxonKey")
+                if not isinstance(taxon_key, int):
+                    continue
+                sci = _non_empty(entry.get("scientificName"))
+                if sci is None:
+                    continue
+                identity = {"taxonKey": taxon_key, "scientificName": sci}
+                # Normalized scientific name as name-lookup key.
+                key = _normalize_name(sci)
+                if key and key not in by_name:
+                    by_name[key] = identity
+                # Derive plant id the same way as Dart _fallbackId.
+                parts = sci.strip().split()
+                if len(parts) >= 2:
+                    plant_id = f"{parts[0].lower()}_{parts[1].lower()}"
+                    by_plant_id.setdefault(plant_id, identity)
+        except Exception as exc:
+            print(f"[warn] could not load resolved plants from {path}: {exc}", flush=True)
     return by_plant_id, by_name
 
 
@@ -197,6 +238,16 @@ def main() -> int:
     ap.add_argument("--mark-trigger-processed", action="store_true")
     ap.add_argument("--bundle-path", default="../assets/data/plants_bundle.json")
     ap.add_argument("--rolling-window-days", type=int, default=1095)
+    ap.add_argument(
+        "--resolved-plants",
+        nargs="*",
+        default=[],
+        metavar="PATH",
+        help=(
+            "One or more plants_resolved_*.json files (flat list, pipeline format) "
+            "for taxonKey enrichment. Merged with --bundle-path if both are present."
+        ),
+    )
     args = ap.parse_args()
 
     cred = credentials.Certificate(args.service_account)
@@ -216,6 +267,17 @@ def main() -> int:
 
     statuses = _status_values(args.statuses)
     by_plant_id, by_name = _load_bundle_identity_index(args.bundle_path)
+    if args.resolved_plants:
+        res_by_id, res_by_name = _load_resolved_plants_index(args.resolved_plants)
+        # Resolved files take precedence — they're the authoritative pipeline data.
+        by_plant_id = {**by_plant_id, **res_by_id}
+        by_name = {**by_name, **res_by_name}
+    if by_plant_id or by_name:
+        print(
+            f"[info] plant identity index: {len(by_plant_id)} by id, "
+            f"{len(by_name)} by name",
+            flush=True,
+        )
     cutoff = datetime.now(timezone.utc) - timedelta(days=args.rolling_window_days)
     by_id: dict[str, dict[str, Any]] = {}
     for status in statuses:

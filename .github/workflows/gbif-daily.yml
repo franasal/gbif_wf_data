@@ -177,6 +177,7 @@ jobs:
             --service-account data/firebase_admin_service_account.json \
             --database-id "${FIRESTORE_DATABASE_ID}" \
             --out data/approved_observations.json.gz \
+            --resolved-plants data/plants_resolved_edible.json data/plants_resolved_poisonous.json \
             --require-trigger \
             --mark-trigger-processed
           rm -f data/firebase_admin_service_account.json
