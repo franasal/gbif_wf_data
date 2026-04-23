@@ -492,21 +492,39 @@ def main() -> None:
         missing_poisonous = sorted(poisonous_names - resolved_poisonous_names)
         extra_edible = sorted(resolved_edible_names - edible_names)
         extra_poisonous = sorted(resolved_poisonous_names - poisonous_names)
-        if missing_edible or missing_poisonous or extra_edible or extra_poisonous:
+        if missing_edible or missing_poisonous:
             problems = []
             if missing_edible:
                 problems.append(f"missing edible: {', '.join(missing_edible[:5])}")
             if missing_poisonous:
                 problems.append(f"missing poisonous: {', '.join(missing_poisonous[:5])}")
-            if extra_edible:
-                problems.append(f"stale edible: {', '.join(extra_edible[:5])}")
-            if extra_poisonous:
-                problems.append(f"stale poisonous: {', '.join(extra_poisonous[:5])}")
             raise SystemExit(
                 "Curated taxonomy files are out of sync with the names lists. "
                 "Refresh them manually with tools/resolve_taxa.py before running the daily pipeline. "
                 + " | ".join(problems)
             )
+        if extra_edible:
+            print(
+                "Warning: ignoring stale edible resolved taxa not present in names_edible.json: "
+                + ", ".join(extra_edible[:10]),
+                flush=True,
+            )
+        if extra_poisonous:
+            print(
+                "Warning: ignoring stale poisonous resolved taxa not present in names_poisonous.json: "
+                + ", ".join(extra_poisonous[:10]),
+                flush=True,
+            )
+        resolved_edible = [
+            item
+            for item in resolved_edible
+            if isinstance(item, dict) and item.get("scientificName") in edible_names
+        ]
+        resolved_poisonous = [
+            item
+            for item in resolved_poisonous
+            if isinstance(item, dict) and item.get("scientificName") in poisonous_names
+        ]
         resolved_plants = resolved_edible + resolved_poisonous
 
         # Write legacy combined resolved file for compatibility.

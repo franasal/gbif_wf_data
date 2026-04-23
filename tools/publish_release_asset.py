@@ -67,6 +67,8 @@ def main() -> int:
     ap.add_argument("--approved-observations", default=None, help="Optional approved community observations overlay asset path")
     ap.add_argument("--protected-areas", default=None, help="Optional protected areas asset path")
     ap.add_argument("--stats", default="data/stats_summary.json", help="Stats asset path (optional)")
+    ap.add_argument("--pipeline-diagnostics", default=None, help="Optional pipeline diagnostics JSON asset path")
+    ap.add_argument("--pipeline-point-explorer", default=None, help="Optional pipeline point explorer JSON asset path")
     ap.add_argument("--thumbs-pack", default=None, help="Optional thumbs pack zip (e.g. data/thumbs_pack_latest.zip)")
     ap.add_argument("--light-pack-edible", default="assets/plant_images/light_build/edible/gbif_light_edible.zip", help="Light pack (edible) zip path")
     ap.add_argument("--light-pack-poisonous", default="assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip", help="Light pack (poisonous) zip path")
@@ -96,6 +98,8 @@ def main() -> int:
     light_edible = Path(args.light_pack_edible) if args.light_pack_edible else None
     light_poisonous = Path(args.light_pack_poisonous) if args.light_pack_poisonous else None
     stats = Path(args.stats) if args.stats else None
+    pipeline_diagnostics = Path(args.pipeline_diagnostics) if args.pipeline_diagnostics else None
+    pipeline_point_explorer = Path(args.pipeline_point_explorer) if args.pipeline_point_explorer else None
     thumbs = Path(args.thumbs_pack) if args.thumbs_pack else None
 
     upload_asset(tag, legacy_path, clobber=clobber)
@@ -111,6 +115,10 @@ def main() -> int:
         upload_asset(tag, approved_observations, clobber=clobber)
     if protected_areas:
         upload_asset(tag, protected_areas, clobber=clobber)
+    if pipeline_diagnostics:
+        upload_asset(tag, pipeline_diagnostics, clobber=clobber)
+    if pipeline_point_explorer:
+        upload_asset(tag, pipeline_point_explorer, clobber=clobber)
     if light_edible:
         upload_asset(tag, light_edible, clobber=clobber)
     if light_poisonous:

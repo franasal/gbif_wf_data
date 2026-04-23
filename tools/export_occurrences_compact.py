@@ -556,6 +556,7 @@ def main():
         latest_points: Dict[str, List[list]] = {s: [] for s in top_species}
         latest_seen_keys: Dict[str, set[str]] = {s: set() for s in top_species}
         sampled_seen_keys: Dict[str, set[str]] = {s: set() for s in top_species}
+        raw_cells_by_species: Dict[str, set[str]] = {s: set() for s in top_species}
         source_counts: Dict[str, Dict[str, int]] = {s: defaultdict(int) for s in top_species}
         loss_sample_limit = max(0, int(args.loss_report_sample_per_plant or 0))
         loss_counts: Dict[str, Dict[str, int]] = {
@@ -677,6 +678,7 @@ def main():
 
             cell = geohash_encode(latf, lonf, precision=prec)
             key = (sci, cell)
+            raw_cells_by_species[sci].add(cell)
 
             gbif_id_val = r["gbif_id"] if col_gbif_id else None
             try:
@@ -837,6 +839,13 @@ def main():
 
             obj_total = int(true_totals.get(sci, 0))
             month_total = int(sum(true_month_counts[sci]))
+            shipped_cells = {
+                geohash_encode(float(p[0]), float(p[1]), precision=prec)
+                for p in pts
+                if len(p) > 1
+            }
+            raw_occupied_cells = len(raw_cells_by_species.get(sci, set()))
+            shipped_occupied_cells = len(shipped_cells)
 
             obj = {
                 "de": name_map.get(sci, ""),
@@ -861,6 +870,14 @@ def main():
                     "latest_reserved": latest_reserved,
                     "latest_injected_count": min(latest_reserved, len(reserved)),
                     "ratio": (round(len(pts) / obj_total, 6) if obj_total > 0 else None),
+                    "grid_precision": prec,
+                    "raw_occupied_cells": raw_occupied_cells,
+                    "shipped_occupied_cells": shipped_occupied_cells,
+                    "grid_coverage": (
+                        round(shipped_occupied_cells / raw_occupied_cells, 6)
+                        if raw_occupied_cells > 0
+                        else None
+                    ),
                 },
                 "observation_sources": dict(sorted(source_counts[sci].items())),
                 "loss_counts": dict(loss_counts[sci]),
@@ -922,6 +939,14 @@ def main():
                 raw_total = int(true_totals.get(sci, 0))
                 shipped_total = counts["kept_latest_reserved"] + counts["kept_geohash_sample"]
                 dropped_total = max(0, raw_total - shipped_total)
+                raw_occupied_cells = len(raw_cells_by_species.get(sci, set()))
+                shipped_occupied_cells = len(
+                    {
+                        geohash_encode(float(p[0]), float(p[1]), precision=prec)
+                        for p in (latest_points[sci] + sampled_points[sci])
+                        if len(p) > 1
+                    }
+                )
                 plant_loss = {
                     "scientificName": sci,
                     "commonName": name_map.get(sci, ""),
@@ -929,6 +954,14 @@ def main():
                     "rawTotal": raw_total,
                     "shippedTotal": shipped_total,
                     "droppedTotal": dropped_total,
+                    "rawOccupiedCells": raw_occupied_cells,
+                    "shippedOccupiedCells": shipped_occupied_cells,
+                    "droppedOccupiedCells": max(0, raw_occupied_cells - shipped_occupied_cells),
+                    "gridCoverage": (
+                        round(shipped_occupied_cells / raw_occupied_cells, 6)
+                        if raw_occupied_cells > 0
+                        else None
+                    ),
                     "dropReasonCounts": counts,
                     "sampling": {
                         "mode": ("adaptive" if args.adaptive_sampling else "fixed"),
@@ -936,6 +969,7 @@ def main():
                         "keep_per_cell": per_plant_keep_per_cell.get(sci, keep_per_cell),
                         "max_points_per_plant": per_plant_max_points.get(sci, max_points),
                         "latest_reserved": latest_reserved,
+                        "grid_precision": prec,
                     },
                     "droppedPointsSample": dropped_point_samples[sci],
                 }

@@ -311,6 +311,8 @@ jobs:
             --recent-dataset-poisonous data/occurrences_recent_poisonous.json.gz \
             --approved-observations data/approved_observations.json.gz \
             --protected-areas data/protected_areas_de.json.gz \
+            --pipeline-diagnostics data/pipeline_diagnostics_summary.json \
+            --pipeline-point-explorer data/pipeline_point_explorer.json \
             --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
             --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip
 
@@ -335,5 +337,7 @@ jobs:
             --recent-dataset-poisonous data/occurrences_recent_poisonous.json.gz \
             --approved-observations data/approved_observations.json.gz \
             --protected-areas data/protected_areas_de.json.gz \
+            --pipeline-diagnostics data/pipeline_diagnostics_summary.json \
+            --pipeline-point-explorer data/pipeline_point_explorer.json \
             --light-pack-edible assets/plant_images/light_build/edible/gbif_light_edible.zip \
             --light-pack-poisonous assets/plant_images/light_build/poisonous/gbif_light_poisonous.zip

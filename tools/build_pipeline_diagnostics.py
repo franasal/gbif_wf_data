@@ -57,6 +57,8 @@ def main() -> int:
     per_plant: list[dict[str, Any]] = []
     total_raw = 0
     total_sampled = 0
+    total_raw_cells = 0
+    total_shipped_cells = 0
     loss_by_sci = {}
     for row in loss_report.get("plants", []):
         if isinstance(row, dict) and row.get("scientificName"):
@@ -70,11 +72,19 @@ def main() -> int:
         sampled_total = _safe_int(
             loss_row.get("shippedTotal", payload.get("sampled_total"))
         )
+        sampling = payload.get("sampling") if isinstance(payload.get("sampling"), dict) else {}
+        raw_occupied_cells = _safe_int(
+            loss_row.get("rawOccupiedCells", sampling.get("raw_occupied_cells"))
+        )
+        shipped_occupied_cells = _safe_int(
+            loss_row.get("shippedOccupiedCells", sampling.get("shipped_occupied_cells"))
+        )
         dropped = max(0, raw_total - sampled_total)
         total_raw += raw_total
         total_sampled += sampled_total
+        total_raw_cells += raw_occupied_cells
+        total_shipped_cells += shipped_occupied_cells
 
-        sampling = payload.get("sampling") if isinstance(payload.get("sampling"), dict) else {}
         observation_sources = (
             payload.get("observation_sources")
             if isinstance(payload.get("observation_sources"), dict)
@@ -91,6 +101,19 @@ def main() -> int:
                 "droppedBySampling": dropped,
                 "samplingCoverage": (
                     round(sampled_total / raw_total, 6) if raw_total > 0 else None
+                ),
+                "rawOccupiedCells": raw_occupied_cells,
+                "shippedOccupiedCells": shipped_occupied_cells,
+                "droppedOccupiedCells": max(0, raw_occupied_cells - shipped_occupied_cells),
+                "gridCoverage": (
+                    round(shipped_occupied_cells / raw_occupied_cells, 6)
+                    if raw_occupied_cells > 0
+                    else None
+                ),
+                "gridPrecision": _safe_int(
+                    loss_row.get("sampling", {}).get("grid_precision")
+                    if isinstance(loss_row.get("sampling"), dict)
+                    else sampling.get("grid_precision")
                 ),
                 "latestReserved": _safe_int(sampling.get("latest_injected_count")),
                 "keepPerCell": _safe_int(sampling.get("keep_per_cell")),
@@ -147,6 +170,14 @@ def main() -> int:
             "droppedByGlobalCap": _safe_int(loss_totals.get("dropped_global_cap")),
             "samplingCoverage": (
                 round(total_sampled / total_raw, 6) if total_raw > 0 else None
+            ),
+            "rawOccupiedCells": total_raw_cells,
+            "shippedOccupiedCells": total_shipped_cells,
+            "droppedOccupiedCells": max(0, total_raw_cells - total_shipped_cells),
+            "gridCoverage": (
+                round(total_shipped_cells / total_raw_cells, 6)
+                if total_raw_cells > 0
+                else None
             ),
             "newPointsInCurrentWindow": _safe_int(
                 updates_summary.get("total_new_points")
