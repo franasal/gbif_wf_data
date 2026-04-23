@@ -180,6 +180,21 @@ python tools/resolve_taxa.py \
 - On manual workflow runs, `release_suffix` can be provided to publish isolated test channels without touching prod/dev tags:
   - example suffix `-canary` -> tags `latest-canary` and `latest-dev-canary`
 
+### 7b) Browser-safe asset mirror (Cloudflare R2)
+
+- The admin panel runs in the browser and should not fetch GitHub release downloads directly because release redirects are unreliable for web CORS.
+- The workflow therefore mirrors selected browser-facing JSON assets to the public R2 base already used by the app.
+- Current mirrored pipeline-analysis assets:
+  - `pipeline_diagnostics_summary.json`
+  - `pipeline_point_explorer.json`
+- Mirror helper:
+  - `tools/mirror_assets_to_r2.py`
+- Required workflow secrets:
+  - `R2_ACCOUNT_ID`
+  - `R2_ACCESS_KEY_ID`
+  - `R2_SECRET_ACCESS_KEY`
+  - `R2_BUCKET`
+
 ---
 
 ## GitHub Actions workflow summary
