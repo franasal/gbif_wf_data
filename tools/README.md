@@ -16,3 +16,6 @@ Active scripts in this folder:
 Primary docs:
 - `gbif_wf_data/README.md`
 - `docs/gbif_light_pipeline_v2.md`
+
+Legacy scripts:
+- `tools/legacy/publish_image_license_inventory.py` is retained for the legal inventory workflow.

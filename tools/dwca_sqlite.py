@@ -140,10 +140,6 @@ def set_meta(con, key, value):
     con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES(?,?)", (key, str(value)))
     con.commit()
 
-def get_meta(con, key, default=None):
-    row = con.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
-    return row[0] if row else default
-
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 

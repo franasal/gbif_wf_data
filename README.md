@@ -189,8 +189,9 @@ The workflow runs in two jobs:
 - **SQLite index enhancements:**
   - Added single-column indexes on `scientificName` and `species` to speed filtering and lookup.
 
-- **Download cache reuse in CI:**
-  - Added an Actions cache for `.tmp_gbif` so ZIP downloads can be reused across runs.
+- **SQLite/state checkpoint reuse in CI:**
+  - The workflow persists `data/dwca.sqlite` + `data/gbif_state.json` between runs.
+  - Daily runs append to the rolling DB; weekly/full refreshes can still rebuild from scratch.
 
 ### ✅ Rolling daily + weekly full-range refresh
 
@@ -204,7 +205,8 @@ The workflow runs in two jobs:
 
 ### ✅ Removed unused/unwired scripts
 
-- Removed unused helper scripts (`gbif_incremental_update.py`, `run_pipeline.py`, legacy stats builders).
+- Removed obsolete duplicated legacy pipeline scripts from `tools/legacy/`.
+- Kept only `tools/legacy/publish_image_license_inventory.py` for the legal-inventory workflow.
 
 ---
 

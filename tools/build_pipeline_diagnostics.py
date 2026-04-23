@@ -32,13 +32,6 @@ def _safe_int(value: Any) -> int:
         return 0
 
 
-def _safe_float(value: Any) -> float | None:
-    try:
-        return float(value)
-    except Exception:
-        return None
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Build compact pipeline diagnostics summary for admin panel consumption.",
