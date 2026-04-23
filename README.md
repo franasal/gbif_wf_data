@@ -2,7 +2,7 @@
 
 This repository hosts a daily GBIF download + export pipeline that:
 
-1. Resolves a curated plant list against the GBIF backbone.
+1. Uses curated, manually maintained GBIF taxon resolution files.
 2. Downloads an incremental DWCA export from GBIF using LAST_INTERPRETED filters.
 3. Loads the DWCA `occurrence.txt` into SQLite.
 4. Exports a compact JSON dataset (sampled points per plant and per cell).
@@ -27,11 +27,35 @@ For a project-level reference (including pre-sampling visualization and current 
 | `data/names_poisonous.json` | Scientific name → German/common name mapping for poisonous plants (authoritative poisonous list). |
 | `data/gbif_download_config.json` | Country, (optional) year range, rolling window days, daily window length, weekly refresh weekday, export sampling parameters, and gzip settings. |
 
-### 2) Name resolution (`tools/resolve_taxa.py`)
+### 2) Curated taxon resolution (`tools/resolve_taxa.py`)
 
-- Reads `data/names_edible.json` and `data/names_poisonous.json`, and queries the GBIF species match API.
-- Writes `data/plants_resolved_edible.json` and `data/plants_resolved_poisonous.json` with taxon keys + match metadata.
-- Writes `data/taxon_cache.json` to avoid re-querying unchanged names.
+- The daily pipeline does **not** resolve taxa automatically.
+- Instead it reads the curated files:
+  - `data/plants_resolved_edible.json`
+  - `data/plants_resolved_poisonous.json`
+- `data/taxon_cache.json` remains useful as supporting metadata, especially when a resolved taxon is a synonym and the exporter/download predicate needs the accepted usage key as well.
+
+#### Manual workflow when plant lists change
+
+1. Edit `data/names_edible.json` or `data/names_poisonous.json`.
+2. Run the resolver manually for the changed list.
+3. Review the output match metadata.
+4. Commit the updated `plants_resolved_*.json` and `taxon_cache.json`.
+5. Re-run the normal daily/export pipeline only after the curated resolved files are in sync.
+
+Example commands:
+
+```bash
+python tools/resolve_taxa.py \
+  --names data/names_edible.json \
+  --out data/plants_resolved_edible.json \
+  --cache data/taxon_cache.json
+
+python tools/resolve_taxa.py \
+  --names data/names_poisonous.json \
+  --out data/plants_resolved_poisonous.json \
+  --cache data/taxon_cache.json
+```
 
 **Output shape (example):**
 
@@ -58,8 +82,8 @@ For a project-level reference (including pre-sampling visualization and current 
 - Builds a GBIF predicate that includes:
   - `HAS_COORDINATE = true` (if configured)
   - Country + year range filters
-  - `TAXON_KEY in [...]` from resolved plant list
-  - `LAST_INTERPRETED >= <since>` using a daily window or a weekly full-range refresh
+  - `TAXON_KEY in [...]` from the curated resolved plant lists
+  - configured window key `>= <since>` using a daily window or a weekly full-range refresh
 - Requests a DWCA download, waits for completion, and downloads the zip into `.tmp_gbif/<key>`.
 
 ### 4) SQLite load (`tools/dwca_sqlite.py`)
@@ -159,11 +183,11 @@ For a project-level reference (including pre-sampling visualization and current 
 The workflow runs in two jobs:
 
 1. **build_db** (db-only):
-   - Resolves names (cached by hash if unchanged).
+   - Verifies that `names_*.json` and `plants_resolved_*.json` are in sync.
    - Requests + downloads DWCA using a daily window (or weekly full-range refresh window).
    - Generates `updates_summary_edible.json` and `updates_summary_poisonous.json`.
    - Loads `dwca.sqlite` and uploads it as an artifact.
-   - Commits state/cache/output files back to the repo.
+   - Commits state/output files back to the repo.
 
 2. **export_and_release** (export-only):
    - Downloads the DB artifact.
@@ -176,9 +200,6 @@ The workflow runs in two jobs:
 ## Updates performed in this cleanup/optimization pass
 
 ### ✅ Output-preserving optimizations
-
-- **Name resolution caching:**
-  - Added SHA-256 hashes of `names_edible.json` and `names_poisonous.json` to `gbif_state.json` so we can skip resolver calls when the lists are unchanged.
 
 - **Whitelist-as-source-of-truth:**
   - The export script now includes all names from the whitelist when a `names_*.json` is provided (no `top_n` slicing).
@@ -217,7 +238,7 @@ The workflow runs in two jobs:
 | `data/plants_resolved.json` | Name resolution results for legacy/prod combined list. |
 | `data/plants_resolved_edible.json` | Name resolution results for edible plants. |
 | `data/plants_resolved_poisonous.json` | Name resolution results for poisonous plants. |
-| `data/taxon_cache.json` | Cached GBIF match responses. |
+| `data/taxon_cache.json` | Cached/manual GBIF match metadata used to keep synonym handling reproducible. |
 | `data/dwca.sqlite` | SQLite database of occurrences. |
 | `data/occurrences_compact.json.gz` | Compact export for legacy/prod (combined). |
 | `data/occurrences_compact_edible.json.gz` | Compact export for edible plants. |

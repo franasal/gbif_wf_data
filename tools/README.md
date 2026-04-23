@@ -2,8 +2,8 @@
 
 Active scripts in this folder:
 
-- `run_daily_update.py` - Orchestrates GBIF download, SQLite load, and compact export.
-- `resolve_taxa.py` - Resolves scientific names to GBIF taxon keys.
+- `run_daily_update.py` - Orchestrates GBIF download, SQLite load, and compact export from curated resolved taxa files.
+- `resolve_taxa.py` - Manual helper to resolve scientific names to GBIF taxon keys when the curated plant list changes.
 - `dwca_sqlite.py` - Loads DWCA `occurrence.txt` into `data/dwca.sqlite`.
 - `export_occurrences_compact.py` - Builds compact map dataset exports.
 - `export_approved_observations_from_firestore.py` - Exports approved observation overlay.
