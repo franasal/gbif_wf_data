@@ -43,6 +43,10 @@ For a project-level reference (including pre-sampling visualization and current 
 4. Commit the updated `plants_resolved_*.json` and `taxon_cache.json`.
 5. Re-run the normal daily/export pipeline only after the curated resolved files are in sync.
 
+Daily pipeline behavior:
+- Missing current names in `plants_resolved_*.json` are a hard error.
+- Extra legacy or synonym rows in `plants_resolved_*.json` are warned about and ignored during daily runs, but should still be cleaned up during manual taxonomy maintenance.
+
 Example commands:
 
 ```bash
