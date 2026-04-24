@@ -322,6 +322,14 @@ def main():
             "for admin source filtering (0 disables source-scoped samples)."
         ),
     )
+    ap.add_argument(
+        "--source-scoped-out",
+        default=None,
+        help=(
+            "Optional separate JSON path for source-scoped samples. When set, "
+            "source-scoped samples are not embedded in the compact app dataset."
+        ),
+    )
 
     ap.add_argument("--region-name", default="Germany")
     ap.add_argument("--region-lat", type=float, default=51.0)
@@ -910,7 +918,7 @@ def main():
                 "observation_sources": dict(sorted(source_counts[sci].items())),
                 "loss_counts": dict(loss_counts[sci]),
             }
-            if write_source_scoped:
+            if write_source_scoped and not args.source_scoped_out:
                 obj["source_scoped_samples"] = {
                     source: points
                     for source, points in sorted(source_scoped_points[sci].items())
@@ -958,6 +966,43 @@ def main():
         }
 
         write_output(args.out, out, gzip_enabled=bool(args.gzip))
+        if write_source_scoped and args.source_scoped_out:
+            source_scoped_plants: Dict[str, dict] = {}
+            for sci in top_species:
+                samples = {
+                    source: points
+                    for source, points in sorted(source_scoped_points[sci].items())
+                    if points
+                }
+                source_scoped_plants[sci] = {
+                    "de": name_map.get(sci, ""),
+                    "taxonKey": taxon_by_species.get(sci),
+                    "total": int(true_totals.get(sci, 0)),
+                    "observation_sources": dict(sorted(source_counts[sci].items())),
+                    "source_scoped_samples": samples,
+                    "source_scoped_sample_count": sum(
+                        len(points) for points in samples.values()
+                    ),
+                }
+            source_scoped_out = {
+                "region": out["region"],
+                "plants": source_scoped_plants,
+                "meta": {
+                    "generated_at": utc_now_iso(),
+                    "source": os.path.basename(args.db),
+                    "country": args.country or None,
+                    "year_from": args.year_from,
+                    "year_to": args.year_to,
+                    "export_kind": "source_scoped_samples",
+                    "source_scoped_max_points_per_plant_source": source_scoped_max,
+                    "points_schema": out["meta"]["points_schema"],
+                },
+            }
+            write_output(
+                args.source_scoped_out,
+                source_scoped_out,
+                gzip_enabled=bool(args.gzip),
+            )
         if args.loss_report_out:
             plants_loss: List[Dict[str, Any]] = []
             totals = {

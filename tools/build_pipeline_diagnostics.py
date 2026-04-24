@@ -41,6 +41,7 @@ def main() -> int:
     ap.add_argument("--changes-summary", required=True)
     ap.add_argument("--pipeline-run-summary", required=True)
     ap.add_argument("--loss-report", required=True)
+    ap.add_argument("--source-scoped-samples", default="")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -49,10 +50,22 @@ def main() -> int:
     changes_summary = _load_json(Path(args.changes_summary), {})
     pipeline_run_summary = _load_json(Path(args.pipeline_run_summary), {})
     loss_report = _load_json(Path(args.loss_report), {})
+    source_scoped_payload = (
+        _load_json(Path(args.source_scoped_samples), {})
+        if args.source_scoped_samples
+        else {}
+    )
 
     plants = compact.get("plants") if isinstance(compact, dict) else None
     if not isinstance(plants, dict):
         plants = {}
+    source_scoped_plants = (
+        source_scoped_payload.get("plants")
+        if isinstance(source_scoped_payload, dict)
+        else None
+    )
+    if not isinstance(source_scoped_plants, dict):
+        source_scoped_plants = {}
 
     per_plant: list[dict[str, Any]] = []
     total_raw = 0
@@ -95,6 +108,13 @@ def main() -> int:
             if isinstance(payload.get("source_scoped_samples"), dict)
             else {}
         )
+        if not source_scoped_samples:
+            source_payload = source_scoped_plants.get(scientific_name)
+            if isinstance(source_payload, dict) and isinstance(
+                source_payload.get("source_scoped_samples"),
+                dict,
+            ):
+                source_scoped_samples = source_payload["source_scoped_samples"]
 
         per_plant.append(
             {

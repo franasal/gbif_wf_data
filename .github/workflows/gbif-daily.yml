@@ -195,12 +195,17 @@ jobs:
 
       - name: Build pipeline diagnostics summary
         run: |
+          SOURCE_SCOPED_ARG=""
+          if [ -f data/pipeline_source_scoped_samples.json.gz ]; then
+            SOURCE_SCOPED_ARG="--source-scoped-samples data/pipeline_source_scoped_samples.json.gz"
+          fi
           python -u tools/build_pipeline_diagnostics.py \
             --compact data/occurrences_compact.json.gz \
             --updates-summary data/updates_summary.json \
             --changes-summary data/changes_summary.json \
             --pipeline-run-summary data/pipeline_run_summary.json \
             --loss-report data/pipeline_loss_report.json \
+            ${SOURCE_SCOPED_ARG} \
             --out data/pipeline_diagnostics_summary.json
 
       - name: Build pipeline point explorer payloads
@@ -209,11 +214,16 @@ jobs:
           if [ -f data/occurrences_recent.json.gz ]; then
             RECENT_ARG="--recent data/occurrences_recent.json.gz"
           fi
+          SOURCE_SCOPED_ARG=""
+          if [ -f data/pipeline_source_scoped_samples.json.gz ]; then
+            SOURCE_SCOPED_ARG="--source-scoped-samples data/pipeline_source_scoped_samples.json.gz"
+          fi
           python -u tools/build_pipeline_point_explorer.py \
             --compact data/occurrences_compact.json.gz \
             --diagnostics-summary data/pipeline_diagnostics_summary.json \
             --loss-report data/pipeline_loss_report.json \
             ${RECENT_ARG} \
+            ${SOURCE_SCOPED_ARG} \
             --out data/pipeline_point_explorer.json
 
       - name: Publish pipeline diagnostics summary to Firestore

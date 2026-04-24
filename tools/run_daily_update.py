@@ -721,9 +721,15 @@ def main() -> None:
                     cfg.get("source_scoped_max_points_per_plant_source", 0) or 0
                 )
                 if source_scoped_max > 0:
+                    source_scoped_name = out_path.name.replace(
+                        "occurrences_compact",
+                        "pipeline_source_scoped_samples",
+                    )
                     args += [
                         "--source-scoped-max-points-per-plant-source",
                         str(source_scoped_max),
+                        "--source-scoped-out",
+                        str(out_path.with_name(source_scoped_name)),
                     ]
 
             if country:

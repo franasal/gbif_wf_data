@@ -85,12 +85,18 @@ def main() -> int:
     ap.add_argument("--loss-report", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--recent", default="")
+    ap.add_argument("--source-scoped-samples", default="")
     args = ap.parse_args()
 
     compact = _load_json(Path(args.compact), {})
     diagnostics_summary = _load_json(Path(args.diagnostics_summary), {})
     loss_report = _load_json(Path(args.loss_report), {})
     recent = _load_json(Path(args.recent), {}) if args.recent else {}
+    source_scoped = (
+        _load_json(Path(args.source_scoped_samples), {})
+        if args.source_scoped_samples
+        else {}
+    )
 
     compact_plants = compact.get("plants") if isinstance(compact, dict) else None
     if not isinstance(compact_plants, dict):
@@ -98,6 +104,9 @@ def main() -> int:
     recent_plants = recent.get("plants") if isinstance(recent, dict) else None
     if not isinstance(recent_plants, dict):
         recent_plants = {}
+    source_scoped_plants = source_scoped.get("plants") if isinstance(source_scoped, dict) else None
+    if not isinstance(source_scoped_plants, dict):
+        source_scoped_plants = {}
 
     diagnostics_by_sci = {}
     for row in diagnostics_summary.get("plants", []):
@@ -125,6 +134,13 @@ def main() -> int:
         recent_points = recent_points if isinstance(recent_points, list) else []
         source_scoped_raw = compact_payload.get("source_scoped_samples")
         source_scoped_raw = source_scoped_raw if isinstance(source_scoped_raw, dict) else {}
+        if not source_scoped_raw:
+            source_payload = source_scoped_plants.get(scientific_name)
+            if isinstance(source_payload, dict) and isinstance(
+                source_payload.get("source_scoped_samples"),
+                dict,
+            ):
+                source_scoped_raw = source_payload["source_scoped_samples"]
         source_scoped_samples = {
             str(source): items
             for source, points in source_scoped_raw.items()
@@ -164,8 +180,13 @@ def main() -> int:
             "sampling": compact_payload.get("sampling") or {},
             "observationSources": compact_payload.get("observation_sources") or {},
             "sourceScopedSamples": source_scoped_samples,
-            "sourceScopedSampleLimit": (compact.get("meta") or {}).get(
-                "source_scoped_max_points_per_plant_source"
+            "sourceScopedSampleLimit": (
+                (source_scoped.get("meta") or {}).get(
+                    "source_scoped_max_points_per_plant_source"
+                )
+                or (compact.get("meta") or {}).get(
+                    "source_scoped_max_points_per_plant_source"
+                )
             ),
             "pointsSchema": (compact.get("meta") or {}).get("points_schema") or [],
             "shippedPoints": shipped_points,
