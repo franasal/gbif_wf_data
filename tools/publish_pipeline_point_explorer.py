@@ -11,14 +11,18 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="Publish per-plant point explorer payloads to Firestore admin_overrides.",
     )
-    ap.add_argument("--service-account", required=True)
+    ap.add_argument("--service-account", default="")
     ap.add_argument("--database-id", default="(default)")
     ap.add_argument("--input", required=True)
     ap.add_argument("--index-document-id", default="pipeline_point_explorer_index")
     args = ap.parse_args()
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
-    cred = credentials.Certificate(args.service_account)
+    cred = (
+        credentials.Certificate(args.service_account)
+        if args.service_account
+        else credentials.ApplicationDefault()
+    )
     firebase_admin.initialize_app(cred)
     db = firestore.client(database_id=args.database_id)
 

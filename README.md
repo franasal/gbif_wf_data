@@ -189,6 +189,8 @@ python tools/resolve_taxa.py \
   - `pipeline_point_explorer.json`
 - Mirror helper:
   - `tools/mirror_assets_to_r2.py`
+- CORS helper:
+  - `tools/configure_r2_cors.py`
 - Required workflow secrets:
   - `R2_ACCOUNT_ID`
   - `R2_ACCESS_KEY_ID`
@@ -199,6 +201,16 @@ python tools/resolve_taxa.py \
     endpoint host `<account-id>.r2.cloudflarestorage.com`.
   - Do not use the public `pub-...r2.dev` token there; that is only the public
     delivery hostname, not the S3 API account id.
+  - The public bucket must allow browser `GET`/`HEAD` CORS, otherwise the admin
+    panel can see the object URL in `curl` but browser `fetch()` is blocked.
+    Configure it with:
+
+```bash
+python tools/configure_r2_cors.py \
+  --bucket wildfor \
+  --origin https://admin.wildforager.org \
+  --origin https://wild-forager.gitlab.io
+```
 
 ---
 
