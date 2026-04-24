@@ -194,6 +194,11 @@ python tools/resolve_taxa.py \
   - `R2_ACCESS_KEY_ID`
   - `R2_SECRET_ACCESS_KEY`
   - `R2_BUCKET`
+- Important:
+  - `R2_ACCOUNT_ID` must be the Cloudflare storage account id from the private
+    endpoint host `<account-id>.r2.cloudflarestorage.com`.
+  - Do not use the public `pub-...r2.dev` token there; that is only the public
+    delivery hostname, not the S3 API account id.
 
 ---
 

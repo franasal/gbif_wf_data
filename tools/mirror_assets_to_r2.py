@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import boto3
+from botocore.config import Config
 
 
 def _env(name: str) -> str:
@@ -14,17 +15,35 @@ def _env(name: str) -> str:
     return value
 
 
+def _normalize_account_id(raw: str) -> str:
+    value = raw.strip()
+    value = value.removeprefix("https://").removeprefix("http://")
+    value = value.removesuffix(".r2.cloudflarestorage.com")
+    value = value.strip("/")
+    if not value:
+        raise SystemExit("R2_ACCOUNT_ID resolved to an empty value.")
+    return value
+
+
 def _client():
-    account_id = _env("R2_ACCOUNT_ID")
+    account_id = _normalize_account_id(_env("R2_ACCOUNT_ID"))
     access_key = _env("R2_ACCESS_KEY_ID")
     secret_key = _env("R2_SECRET_ACCESS_KEY")
-    endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
+    endpoint = os.environ.get("R2_ENDPOINT", "").strip()
+    if not endpoint:
+        endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
+    endpoint = endpoint.rstrip("/")
     return boto3.client(
         "s3",
         endpoint_url=endpoint,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         region_name="auto",
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+            retries={"max_attempts": 5, "mode": "standard"},
+        ),
     )
 
 
