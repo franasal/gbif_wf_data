@@ -7,11 +7,13 @@ import argparse
 import gzip
 import json
 import sys
+import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 
 REFERER = "https://geodienste.bfn.de/schutzgebiete?l=~schgeb%28-4%29&lang=de"
@@ -19,6 +21,8 @@ USER_AGENT = "Mozilla/5.0 (compatible; WildForagerProtectedAreaImporter/1.0)"
 BASE_URL = (
     "https://geodienste.bfn.de/server/rest/services/bfn_sch/Schutzgebiet/MapServer"
 )
+REQUEST_RETRIES = 4
+RETRY_DELAY_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
@@ -36,17 +40,62 @@ LAYER_SPECS = (
 )
 
 
+def _preview_body(raw: bytes, limit: int = 160) -> str:
+    text = raw.decode("utf-8", errors="replace").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}..."
+
+
 def _request_json(url: str) -> dict:
     req = urllib.request.Request(
         url,
         headers={
             "User-Agent": USER_AGENT,
             "Referer": REFERER,
-            "Accept": "application/json",
+            "Accept": "application/json, application/geo+json",
         },
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    last_error: Exception | None = None
+    for attempt in range(1, REQUEST_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                raw = resp.read()
+                content_type = resp.headers.get("Content-Type", "")
+        except (HTTPError, URLError, TimeoutError) as exc:
+            last_error = exc
+            if attempt < REQUEST_RETRIES:
+                print(
+                    f"Request attempt {attempt}/{REQUEST_RETRIES} failed for {url}: {exc}. "
+                    f"Retrying in {RETRY_DELAY_SECONDS:.1f}s.",
+                    file=sys.stderr,
+                )
+                time.sleep(RETRY_DELAY_SECONDS)
+                continue
+            break
+
+        if not raw.strip():
+            last_error = ValueError(
+                f"Empty response body (content-type={content_type or 'unknown'})",
+            )
+        else:
+            try:
+                return json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError as exc:
+                last_error = ValueError(
+                    "Non-JSON response from BfN service "
+                    f"(content-type={content_type or 'unknown'}, body={_preview_body(raw)!r})",
+                )
+
+        if attempt < REQUEST_RETRIES:
+            print(
+                f"Request attempt {attempt}/{REQUEST_RETRIES} returned invalid JSON for {url}: "
+                f"{last_error}. Retrying in {RETRY_DELAY_SECONDS:.1f}s.",
+                file=sys.stderr,
+            )
+            time.sleep(RETRY_DELAY_SECONDS)
+
+    raise RuntimeError(f"Failed to fetch JSON from {url}: {last_error}")
 
 
 def _query_url(layer_id: int, **params: object) -> str:
