@@ -687,6 +687,7 @@ def main() -> None:
             names_path: Path,
             *,
             loss_report_path: Path | None = None,
+            include_source_scoped_samples: bool = False,
         ) -> list[str]:
             args = [
                 "python", "-u", str(exporter),
@@ -715,6 +716,15 @@ def main() -> None:
                     "--loss-report-out",
                     str(loss_report_path),
                 ]
+            if include_source_scoped_samples:
+                source_scoped_max = int(
+                    cfg.get("source_scoped_max_points_per_plant_source", 0) or 0
+                )
+                if source_scoped_max > 0:
+                    args += [
+                        "--source-scoped-max-points-per-plant-source",
+                        str(source_scoped_max),
+                    ]
 
             if country:
                 args += ["--country", str(country)]
@@ -738,6 +748,7 @@ def main() -> None:
                 export_prod_out,
                 names_prod_path,
                 loss_report_path=repo / "data" / "pipeline_loss_report.json",
+                include_source_scoped_samples=True,
             )
         )
 

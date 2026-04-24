@@ -313,6 +313,15 @@ def main():
         default=0,
         help="Max raw latest observations per plant for --recent-out (0 disables recent export).",
     )
+    ap.add_argument(
+        "--source-scoped-max-points-per-plant-source",
+        type=int,
+        default=0,
+        help=(
+            "Max newest raw observations to retain per plant and normalized source label "
+            "for admin source filtering (0 disables source-scoped samples)."
+        ),
+    )
 
     ap.add_argument("--region-name", default="Germany")
     ap.add_argument("--region-lat", type=float, default=51.0)
@@ -531,6 +540,11 @@ def main():
         prec = max(1, int(args.cell_precision))
         recent_max_points = max(0, int(args.recent_max_points_per_plant or 0))
         write_recent = bool(args.recent_out and recent_max_points > 0)
+        source_scoped_max = max(
+            0,
+            int(args.source_scoped_max_points_per_plant_source or 0),
+        )
+        write_source_scoped = source_scoped_max > 0
 
         plants_out: Dict[str, dict] = {}
         per_cell_counts: Dict[Tuple[str, str], int] = {}  # (sci, cell) -> kept
@@ -571,6 +585,11 @@ def main():
         }
         dropped_point_samples: Dict[str, List[dict[str, object]]] = {s: [] for s in top_species}
         recent_points: Dict[str, List[list]] = {s: [] for s in top_species} if write_recent else {}
+        source_scoped_points: Dict[str, Dict[str, List[list]]] = (
+            {s: defaultdict(list) for s in top_species}
+            if write_source_scoped
+            else {}
+        )
         done_species = set()
         recent_done_species = set()
 
@@ -755,6 +774,15 @@ def main():
                 if len(rp) >= recent_max_points:
                     recent_done_species.add(sci)
 
+            # Admin source-filtering export: newest raw points per plant/source.
+            # This is deliberately independent from the global compact map sample
+            # so minority sources remain inspectable even when dense plants hit
+            # the global cap.
+            if write_source_scoped and source_label:
+                source_bucket = source_scoped_points[sci][source_label]
+                if len(source_bucket) < source_scoped_max:
+                    source_bucket.append(point)
+
             # Core compact export: adaptive/fixed geohash sampling.
             if sci not in done_species:
                 sci_keep_per_cell = per_plant_keep_per_cell[sci]
@@ -882,6 +910,12 @@ def main():
                 "observation_sources": dict(sorted(source_counts[sci].items())),
                 "loss_counts": dict(loss_counts[sci]),
             }
+            if write_source_scoped:
+                obj["source_scoped_samples"] = {
+                    source: points
+                    for source, points in sorted(source_scoped_points[sci].items())
+                    if points
+                }
 
             if sci in images_map:
                 obj["image"] = images_map[sci]
@@ -904,6 +938,9 @@ def main():
                 "max_points_per_plant": max_points,
                 "adaptive_sampling": bool(args.adaptive_sampling),
                 "latest_points_reserved": latest_reserved,
+                "source_scoped_max_points_per_plant_source": (
+                    source_scoped_max if write_source_scoped else 0
+                ),
                 "scanned_rows": scanned,
                 "points_schema": [
                     "lat",

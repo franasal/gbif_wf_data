@@ -66,6 +66,16 @@ def _point_to_obj(point: list[Any]) -> dict[str, Any]:
     }
 
 
+def _point_list_to_objs(points: Any) -> list[dict[str, Any]]:
+    if not isinstance(points, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for point in points:
+        if isinstance(point, list):
+            out.append(_point_to_obj(point))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Build per-plant point explorer payloads for admin diagnostics.",
@@ -113,6 +123,13 @@ def main() -> int:
         recent_payload = recent_plants.get(scientific_name, {})
         recent_points = recent_payload.get("points")
         recent_points = recent_points if isinstance(recent_points, list) else []
+        source_scoped_raw = compact_payload.get("source_scoped_samples")
+        source_scoped_raw = source_scoped_raw if isinstance(source_scoped_raw, dict) else {}
+        source_scoped_samples = {
+            str(source): items
+            for source, points in source_scoped_raw.items()
+            if (items := _point_list_to_objs(points))
+        }
 
         recent_keys = {_point_key(p) for p in recent_points if isinstance(p, list)}
         shipped_points = []
@@ -146,6 +163,10 @@ def main() -> int:
             "samplingCoverage": diag.get("samplingCoverage"),
             "sampling": compact_payload.get("sampling") or {},
             "observationSources": compact_payload.get("observation_sources") or {},
+            "sourceScopedSamples": source_scoped_samples,
+            "sourceScopedSampleLimit": (compact.get("meta") or {}).get(
+                "source_scoped_max_points_per_plant_source"
+            ),
             "pointsSchema": (compact.get("meta") or {}).get("points_schema") or [],
             "shippedPoints": shipped_points,
             "recentMissingPoints": recent_missing_points,
@@ -167,6 +188,10 @@ def main() -> int:
                 "samplingCoverage": detail_payload["samplingCoverage"],
                 "recentRawAvailable": detail_payload["recentRawAvailable"],
                 "recentRawPointCount": detail_payload["recentRawPointCount"],
+                "sourceScopedSampleSources": sorted(source_scoped_samples.keys()),
+                "sourceScopedSampleCount": sum(
+                    len(points) for points in source_scoped_samples.values()
+                ),
             }
         )
 

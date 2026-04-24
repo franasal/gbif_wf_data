@@ -90,6 +90,11 @@ def main() -> int:
             if isinstance(payload.get("observation_sources"), dict)
             else {}
         )
+        source_scoped_samples = (
+            payload.get("source_scoped_samples")
+            if isinstance(payload.get("source_scoped_samples"), dict)
+            else {}
+        )
 
         per_plant.append(
             {
@@ -122,6 +127,11 @@ def main() -> int:
                 "samplingBucket": sampling.get("bucket"),
                 "sourceCount": len(observation_sources),
                 "observationSources": observation_sources,
+                "sourceScopedSampleSources": sorted(source_scoped_samples.keys()),
+                "sourceScopedSampleCount": sum(
+                    len(points) for points in source_scoped_samples.values()
+                    if isinstance(points, list)
+                ),
                 "droppedByDuplicate": _safe_int(
                     (loss_row.get("dropReasonCounts") or {}).get("dropped_duplicate")
                 ),

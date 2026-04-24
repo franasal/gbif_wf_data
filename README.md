@@ -133,6 +133,11 @@ python tools/resolve_taxa.py \
   - `region` (name + center)
   - `plants` (per-plant stats + sampled points)
   - `meta` (export parameters)
+- The combined/prod diagnostics export can additionally emit
+  `source_scoped_samples`: newest raw points per plant and normalized source
+  label, capped by `source_scoped_max_points_per_plant_source`. These samples
+  are independent from the global compact map cap and are intended for admin
+  source filtering, not app map rendering.
 
 **Output shape (example):**
 

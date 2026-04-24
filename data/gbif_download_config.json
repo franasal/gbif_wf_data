@@ -16,6 +16,7 @@
   "max_points_per_plant": 700,
   "adaptive_sampling": true,
   "recent_max_points_per_plant": 300,
+  "source_scoped_max_points_per_plant_source": 120,
 
   "gzip_json": true,
   "images_index": "assets/plant_images/index.json"
