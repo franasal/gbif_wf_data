@@ -35,16 +35,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       # Keep only the rolling SQLite/state checkpoint across runs.
       # The old zip cache was the real storage hog and remains removed.
       - name: Restore rolling SQLite checkpoint
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             data/dwca.sqlite
@@ -83,14 +83,14 @@ jobs:
           python -u tools/run_daily_update.py "${args[@]}"
 
       - name: Upload DB checkpoint artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dwca-sqlite
           path: data/dwca.sqlite
           retention-days: 1
 
       - name: Save rolling SQLite checkpoint
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             data/dwca.sqlite
@@ -98,7 +98,7 @@ jobs:
           key: dwca-sqlite-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Upload generated state files artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gbif-state-files
           retention-days: 1
@@ -126,9 +126,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -138,13 +138,13 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download DB checkpoint artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: dwca-sqlite
           path: data
 
       - name: Download generated state files artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: gbif-state-files
           path: .
